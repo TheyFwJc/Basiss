@@ -2,9 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { LineChart, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { BrandMark } from "@/components/brand-mark";
 import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
@@ -13,9 +14,9 @@ function Brand() {
   return (
     <Link
       href="/dashboard"
-      className="flex items-center gap-2 px-4 py-4 text-base font-semibold tracking-tight"
+      className="flex items-center gap-2.5 px-4 py-4 text-base font-semibold tracking-tight"
     >
-      <LineChart className="size-5 text-primary" strokeWidth={2.5} />
+      <BrandMark className="size-7 text-sm" />
       Basis
     </Link>
   );

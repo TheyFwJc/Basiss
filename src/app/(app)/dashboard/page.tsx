@@ -204,19 +204,27 @@ export default async function DashboardPage() {
                   label="Total P&L"
                   value={formatCurrency(profit.netPnl.toString())}
                   valueClassName={profit.netPnl.gte(0) ? "text-profit" : "text-loss"}
+                  animateValue={profit.netPnl.toNumber()}
+                  format="currency"
                 />
                 <KpiCard
                   label="Today P&L"
                   value={formatCurrency(todayPnl)}
                   valueClassName={todayPnl >= 0 ? "text-profit" : "text-loss"}
+                  animateValue={todayPnl}
+                  format="currency"
                 />
                 <KpiCard
                   label="Win rate"
                   value={winLoss.winRate == null ? "—" : `${winLoss.winRate.toFixed(0)}%`}
+                  animateValue={winLoss.winRate ?? undefined}
+                  format="percent"
                 />
                 <KpiCard
                   label="Profit factor"
                   value={profit.profitFactor ? profit.profitFactor.toFixed(2) : "—"}
+                  animateValue={profit.profitFactor?.toNumber()}
+                  format="decimal2"
                 />
                 <KpiCard
                   label="Expectancy"
@@ -228,20 +236,28 @@ export default async function DashboardPage() {
                         ? "text-profit"
                         : "text-loss"
                   }
+                  animateValue={profit.expectancy?.toNumber()}
+                  format="currency"
                 />
                 <KpiCard
                   label="Avg win"
                   value={profit.avgWin ? formatCurrency(profit.avgWin.toString()) : "—"}
                   valueClassName="text-profit"
+                  animateValue={profit.avgWin?.toNumber()}
+                  format="currency"
                 />
                 <KpiCard
                   label="Avg loss"
                   value={profit.avgLoss ? formatCurrency(profit.avgLoss.toString()) : "—"}
                   valueClassName="text-loss"
+                  animateValue={profit.avgLoss?.toNumber()}
+                  format="currency"
                 />
                 <KpiCard
                   label="Avg R"
                   value={rStats.avgR ? `${formatSignedNumber(rStats.avgR.toString())}R` : "—"}
+                  animateValue={rStats.avgR?.toNumber()}
+                  format="signedR"
                 />
                 <KpiCard
                   label="Max drawdown"
@@ -251,8 +267,19 @@ export default async function DashboardPage() {
                       : "—"
                   }
                   valueClassName={drawdown.maxDrawdownAmount.gt(0) ? "text-loss" : ""}
+                  animateValue={
+                    drawdown.maxDrawdownAmount.gt(0)
+                      ? drawdown.maxDrawdownAmount.toNumber()
+                      : undefined
+                  }
+                  format="currency"
                 />
-                <KpiCard label="Total trades" value={winLoss.totalTrades} />
+                <KpiCard
+                  label="Total trades"
+                  value={winLoss.totalTrades}
+                  animateValue={winLoss.totalTrades}
+                  format="integer"
+                />
               </div>
 
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
