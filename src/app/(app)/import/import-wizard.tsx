@@ -30,6 +30,7 @@ import {
   applyMapping,
   markDuplicates,
   groupExecutionsIntoTrades,
+  guessColumnMapping,
   type ImportedExecutionRow,
   type AssetClass,
 } from "@/lib/import";
@@ -157,7 +158,7 @@ export function ImportWizard({
       setHeaders(startResult.headers);
       setRows(startResult.rows);
       setExistingRows(existing);
-      setMapping(startResult.savedMapping ?? emptyMapping());
+      setMapping(startResult.savedMapping ?? guessColumnMapping(startResult.headers));
       setExcludedRowIndexes(new Set());
       setStep("mapping");
     });

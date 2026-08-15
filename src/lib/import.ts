@@ -155,6 +155,81 @@ export function applyMapping(
 }
 
 // ---------------------------------------------------------------------------
+// Column mapping auto-detection
+// ---------------------------------------------------------------------------
+
+const FIELD_ALIASES: Record<keyof ColumnMapping, string[]> = {
+  symbol: ["symbol", "ticker", "instrument"],
+  side: ["side", "action", "buysell", "direction"],
+  quantity: ["quantity", "qty", "shares", "units", "size", "filledqty", "filledquantity"],
+  price: ["price", "fillprice", "executionprice", "avgprice", "tradeprice", "avgfillprice"],
+  executedAt: [
+    "time",
+    "date",
+    "datetime",
+    "executiontime",
+    "executedat",
+    "tradedate",
+    "timestamp",
+    "filltime",
+    "orderexecutedtime",
+  ],
+  fees: ["fees", "fee", "exchangefee", "regfee"],
+  commission: ["commission", "comm", "commissions"],
+  assetClass: ["assetclass", "instrumenttype", "securitytype", "type", "sectype"],
+};
+
+const MAPPING_FIELD_ORDER: (keyof ColumnMapping)[] = [
+  "symbol",
+  "side",
+  "quantity",
+  "price",
+  "executedAt",
+  "fees",
+  "commission",
+  "assetClass",
+];
+
+function normalizeHeader(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * Best-effort column mapping from header names alone, so a well-formed CSV
+ * (headers like "Symbol", "Qty", "Price") maps itself instead of forcing the
+ * user to hand-pick all 5 required columns before anything happens. Always
+ * just a starting point — every field stays editable, and an unmatched
+ * header is left blank rather than guessed wrong.
+ */
+export function guessColumnMapping(headers: string[]): ColumnMapping {
+  const available = headers.map((h) => ({ original: h, normalized: normalizeHeader(h) }));
+  const used = new Set<string>();
+  const mapping: ColumnMapping = {
+    symbol: "",
+    side: "",
+    quantity: "",
+    price: "",
+    executedAt: "",
+    fees: "",
+    commission: "",
+    assetClass: "",
+  };
+
+  for (const field of MAPPING_FIELD_ORDER) {
+    const aliases = FIELD_ALIASES[field];
+    const match = available.find(
+      (h) => !used.has(h.original) && aliases.includes(h.normalized)
+    );
+    if (match) {
+      mapping[field] = match.original;
+      used.add(match.original);
+    }
+  }
+
+  return mapping;
+}
+
+// ---------------------------------------------------------------------------
 // Duplicate detection
 // ---------------------------------------------------------------------------
 

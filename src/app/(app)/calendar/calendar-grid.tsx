@@ -64,6 +64,20 @@ export function CalendarGrid({
   const monthStartKey = monthStart.slice(0, 10);
   const monthEndKey = monthEnd.slice(0, 10);
 
+  const monthTrades = trades.filter((t) => {
+    const key = dayKey(t.exitAt);
+    return key >= monthStartKey && key <= monthEndKey;
+  });
+  const monthNetPnl = monthTrades.reduce(
+    (sum, t) => sum + (t.netPnl ? Number(t.netPnl) : 0),
+    0
+  );
+  const monthWins = monthTrades.filter(
+    (t) => t.netPnl && Number(t.netPnl) > 0
+  ).length;
+  const monthWinRate =
+    monthTrades.length > 0 ? Math.round((monthWins / monthTrades.length) * 100) : null;
+
   const selectedTrades = selectedDay ? tradesByDay.get(selectedDay) ?? [] : [];
   const selectedNetPnl = selectedTrades.reduce(
     (sum, t) => sum + (t.netPnl ? Number(t.netPnl) : 0),
@@ -72,10 +86,31 @@ export function CalendarGrid({
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">
-          {MONTH_NAMES[month]} {year}
-        </h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">
+            {MONTH_NAMES[month]} {year}
+          </h2>
+          {monthTrades.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                className={`font-numeric font-semibold tabular-nums ${
+                  monthNetPnl > 0
+                    ? "text-profit"
+                    : monthNetPnl < 0
+                      ? "text-loss"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {formatCurrency(monthNetPnl)}
+              </span>
+              <span className="text-muted-foreground">
+                · {monthTrades.length} trade{monthTrades.length === 1 ? "" : "s"}
+                {monthWinRate !== null && ` · ${monthWinRate}% win rate`}
+              </span>
+            </div>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button
             render={

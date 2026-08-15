@@ -4,6 +4,7 @@ import {
   applyMapping,
   markDuplicates,
   groupExecutionsIntoTrades,
+  guessColumnMapping,
   type ImportedExecutionRow,
 } from "./import";
 import { parseCsv } from "./import-parse";
@@ -63,6 +64,52 @@ describe("parseCsv", () => {
 
   it("returns empty headers/rows for empty input", () => {
     expect(parseCsv("")).toEqual({ headers: [], rows: [] });
+  });
+});
+
+describe("guessColumnMapping", () => {
+  it("maps headers that exactly match a field name", () => {
+    const mapping = guessColumnMapping(["Symbol", "Side", "Quantity", "Price", "Date"]);
+    expect(mapping).toMatchObject({
+      symbol: "Symbol",
+      side: "Side",
+      quantity: "Quantity",
+      price: "Price",
+      executedAt: "Date",
+    });
+  });
+
+  it("matches common broker aliases regardless of case/spacing", () => {
+    const mapping = guessColumnMapping([
+      "Ticker",
+      "Action",
+      "Qty",
+      "Fill Price",
+      "Execution Time",
+      "Fee",
+      "Comm",
+    ]);
+    expect(mapping).toMatchObject({
+      symbol: "Ticker",
+      side: "Action",
+      quantity: "Qty",
+      price: "Fill Price",
+      executedAt: "Execution Time",
+      fees: "Fee",
+      commission: "Comm",
+    });
+  });
+
+  it("leaves a field blank when no header matches", () => {
+    const mapping = guessColumnMapping(["Symbol", "Qty"]);
+    expect(mapping.side).toBe("");
+    expect(mapping.executedAt).toBe("");
+  });
+
+  it("never assigns the same column to two fields", () => {
+    const mapping = guessColumnMapping(["Type"]);
+    const assignedCount = Object.values(mapping).filter((v) => v === "Type").length;
+    expect(assignedCount).toBeLessThanOrEqual(1);
   });
 });
 

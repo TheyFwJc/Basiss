@@ -15,6 +15,7 @@ import {
 } from "@/lib/format";
 import { DeleteTradeButton } from "./delete-trade-button";
 import { ReviewForm } from "./review-form";
+import { ScreenshotGallery } from "./screenshot-gallery";
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -46,6 +47,7 @@ export default async function TradeDetailPage({
         where: { completed: true },
         include: { checklistItem: { include: { checklist: true } } },
       },
+      screenshots: { orderBy: { createdAt: "asc" } },
     },
   });
 
@@ -252,6 +254,15 @@ export default async function TradeDetailPage({
               </span>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Screenshots</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScreenshotGallery tradeId={trade.id} screenshots={trade.screenshots} />
         </CardContent>
       </Card>
 

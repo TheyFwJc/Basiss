@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "5mb",
     },
   },
+  images: {
+    // Trade screenshots are served from Vercel Blob's public storage domain.
+    remotePatterns: [
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+    ],
+  },
 };
 
 export default nextConfig;
