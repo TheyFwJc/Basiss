@@ -1,0 +1,432 @@
+import Link from "next/link";
+import { Wallet, Plus, ArrowRight, ListChecks, Flame, Snowflake } from "lucide-react";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { KpiCard } from "@/components/kpi-card";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatCurrency, formatDate, formatSignedNumber } from "@/lib/format";
+import { AccountFormDialog } from "@/app/(app)/accounts/account-form-dialog";
+import {
+  computeWinLossStats,
+  computeProfitStats,
+  computeRStats,
+  computeStreaks,
+  computeMaxDrawdown,
+  buildEquityCurve,
+  type MetricsTrade,
+} from "@/lib/metrics";
+import { EquityCurveChart } from "./equity-curve-chart";
+import { DailyPnlChart } from "./daily-pnl-chart";
+
+function dateKey(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+export default async function DashboardPage() {
+  const session = await auth();
+  const userId = session!.user.id;
+
+  const [accounts, trades] = await Promise.all([
+    db.tradingAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.trade.findMany({
+      where: { userId },
+      orderBy: { entryAt: "desc" },
+      include: { strategy: true, tradingAccount: true },
+    }),
+  ]);
+
+  const totalStartingBalance = accounts.reduce(
+    (sum, a) => sum + Number(a.startingBalance),
+    0
+  );
+
+  const metricsTrades: MetricsTrade[] = trades.map((t) => ({
+    netPnl: t.netPnl,
+    rMultiple: t.rMultiple,
+    status: t.status,
+    exitAt: t.exitAt,
+  }));
+
+  const winLoss = computeWinLossStats(metricsTrades);
+  const profit = computeProfitStats(metricsTrades);
+  const rStats = computeRStats(metricsTrades);
+  const streaks = computeStreaks(metricsTrades);
+  const equityCurve = buildEquityCurve(totalStartingBalance, metricsTrades);
+  const drawdown = computeMaxDrawdown(equityCurve);
+
+  const today = dateKey(new Date());
+  const todayPnl = trades
+    .filter((t) => t.exitAt && dateKey(t.exitAt) === today && t.netPnl)
+    .reduce((sum, t) => sum + Number(t.netPnl), 0);
+
+  const dailyPnlMap = new Map<string, number>();
+  for (const t of trades) {
+    if (!t.exitAt || !t.netPnl) continue;
+    const key = dateKey(t.exitAt);
+    dailyPnlMap.set(key, (dailyPnlMap.get(key) ?? 0) + Number(t.netPnl));
+  }
+  const dailyPnlData = Array.from(dailyPnlMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, pnl]) => ({ date, pnl }));
+
+  const earliestEntryAt = trades.length > 0 ? trades[trades.length - 1].entryAt : new Date();
+  const equityCurveData = equityCurve.map((p, i) => ({
+    date: i === 0 ? dateKey(earliestEntryAt) : dateKey(p.date),
+    equity: Number(p.equity),
+  }));
+
+  const setupMap = new Map<string, { name: string; netPnl: number; count: number }>();
+  for (const t of trades) {
+    if (!t.strategy || !t.netPnl) continue;
+    const existing = setupMap.get(t.strategy.id) ?? {
+      name: t.strategy.name,
+      netPnl: 0,
+      count: 0,
+    };
+    existing.netPnl += Number(t.netPnl);
+    existing.count += 1;
+    setupMap.set(t.strategy.id, existing);
+  }
+  const setups = Array.from(setupMap.values()).sort((a, b) => b.netPnl - a.netPnl);
+  const bestSetups = setups.slice(0, 3);
+  const worstSetups = setups.slice(-3).reverse().filter((s) => !bestSetups.includes(s));
+
+  const recentTrades = trades.slice(0, 5);
+
+  return (
+    <div>
+      <PageHeader
+        title={`Welcome back${session!.user.name ? `, ${session!.user.name}` : ""}`}
+        description="Here's where your trading performance will live."
+      />
+
+      {accounts.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="Add a trading account to get started"
+          description="Your dashboard, calendar, and analytics are all built from your trades, and every trade belongs to an account. Add one to begin."
+          actions={
+            <AccountFormDialog
+              trigger={
+                <button type="button" className={buttonVariants({ size: "sm" })}>
+                  <Plus className="size-4" />
+                  Add your first account
+                </button>
+              }
+            />
+          }
+        />
+      ) : (
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-base">Your accounts</CardTitle>
+              <Button
+                render={
+                  <Link href="/accounts">
+                    Manage
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                }
+                nativeButton={false}
+                variant="ghost"
+                size="sm"
+              />
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {accounts.map((account) => (
+                <div
+                  key={account.id}
+                  className="flex items-center justify-between rounded-md border border-border px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-medium">{account.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {account.broker || "No broker set"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-numeric text-sm tabular-nums text-muted-foreground">
+                      {formatCurrency(account.startingBalance.toString(), account.currency)}
+                    </span>
+                    <Badge variant={account.status === "ACTIVE" ? "default" : "secondary"}>
+                      {account.status.charAt(0) + account.status.slice(1).toLowerCase()}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              <p className="pt-1 text-xs text-muted-foreground">
+                Combined starting balance:{" "}
+                <span className="font-numeric tabular-nums">
+                  {formatCurrency(totalStartingBalance)}
+                </span>{" "}
+                across {accounts.length} account{accounts.length === 1 ? "" : "s"}.
+                {accounts.length > 1 && (
+                  <>
+                    {" "}
+                    Performance below combines all accounts, assuming they share
+                    a currency.
+                  </>
+                )}
+              </p>
+            </CardContent>
+          </Card>
+
+          {trades.length === 0 ? (
+            <EmptyState
+              icon={ListChecks}
+              title="Log your first trade"
+              description="P&L, R-multiple, win rate, equity curve, and drawdown are all built from your trades. Add one to get started."
+              actions={
+                <Button
+                  render={
+                    <Link href="/trades/new">
+                      <Plus className="size-4" />
+                      Add your first trade
+                    </Link>
+                  }
+                  nativeButton={false}
+                  size="sm"
+                />
+              }
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                <KpiCard
+                  label="Total P&L"
+                  value={formatCurrency(profit.netPnl.toString())}
+                  valueClassName={profit.netPnl.gte(0) ? "text-profit" : "text-loss"}
+                />
+                <KpiCard
+                  label="Today P&L"
+                  value={formatCurrency(todayPnl)}
+                  valueClassName={todayPnl >= 0 ? "text-profit" : "text-loss"}
+                />
+                <KpiCard
+                  label="Win rate"
+                  value={winLoss.winRate == null ? "—" : `${winLoss.winRate.toFixed(0)}%`}
+                />
+                <KpiCard
+                  label="Profit factor"
+                  value={profit.profitFactor ? profit.profitFactor.toFixed(2) : "—"}
+                />
+                <KpiCard
+                  label="Expectancy"
+                  value={profit.expectancy ? formatCurrency(profit.expectancy.toString()) : "—"}
+                  valueClassName={
+                    profit.expectancy == null
+                      ? ""
+                      : profit.expectancy.gte(0)
+                        ? "text-profit"
+                        : "text-loss"
+                  }
+                />
+                <KpiCard
+                  label="Avg win"
+                  value={profit.avgWin ? formatCurrency(profit.avgWin.toString()) : "—"}
+                  valueClassName="text-profit"
+                />
+                <KpiCard
+                  label="Avg loss"
+                  value={profit.avgLoss ? formatCurrency(profit.avgLoss.toString()) : "—"}
+                  valueClassName="text-loss"
+                />
+                <KpiCard
+                  label="Avg R"
+                  value={rStats.avgR ? `${formatSignedNumber(rStats.avgR.toString())}R` : "—"}
+                />
+                <KpiCard
+                  label="Max drawdown"
+                  value={
+                    drawdown.maxDrawdownAmount.gt(0)
+                      ? formatCurrency(drawdown.maxDrawdownAmount.toString())
+                      : "—"
+                  }
+                  valueClassName={drawdown.maxDrawdownAmount.gt(0) ? "text-loss" : ""}
+                />
+                <KpiCard label="Total trades" value={winLoss.totalTrades} />
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Equity curve</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <EquityCurveChart data={equityCurveData} />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Daily P&L</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {dailyPnlData.length === 0 ? (
+                      <p className="py-16 text-center text-sm text-muted-foreground">
+                        No closed trades yet.
+                      </p>
+                    ) : (
+                      <DailyPnlChart data={dailyPnlData} />
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <Card className="lg:col-span-2">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-base">Recent trades</CardTitle>
+                    <Button
+                      render={
+                        <Link href="/trades">
+                          View all
+                          <ArrowRight className="size-3.5" />
+                        </Link>
+                      }
+                      nativeButton={false}
+                      variant="ghost"
+                      size="sm"
+                    />
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-2">
+                    {recentTrades.map((trade) => {
+                      const pnl = trade.netPnl ? Number(trade.netPnl) : null;
+                      return (
+                        <Link
+                          key={trade.id}
+                          href={`/trades/${trade.id}`}
+                          className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted/50"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={trade.direction === "LONG" ? "default" : "secondary"}
+                            >
+                              {trade.direction}
+                            </Badge>
+                            <span className="font-medium">{trade.symbol}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(trade.entryAt)}
+                            </span>
+                          </div>
+                          <span
+                            className={`font-numeric tabular-nums ${
+                              pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-profit" : "text-loss"
+                            }`}
+                          >
+                            {pnl == null
+                              ? "Open"
+                              : formatCurrency(pnl, trade.tradingAccount.currency)}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Streaks</CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                      <span className="flex items-center gap-2 text-sm">
+                        {streaks.current.type === "WIN" ? (
+                          <Flame className="size-4 text-profit" />
+                        ) : (
+                          <Snowflake className="size-4 text-loss" />
+                        )}
+                        Current
+                      </span>
+                      <span className="font-numeric text-sm tabular-nums">
+                        {streaks.current.type
+                          ? `${streaks.current.count} ${streaks.current.type === "WIN" ? "win" : "loss"}${streaks.current.count === 1 ? "" : "es"}`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                      <span className="text-sm text-muted-foreground">Best win streak</span>
+                      <span className="font-numeric text-sm tabular-nums text-profit">
+                        {streaks.bestWinStreak}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+                      <span className="text-sm text-muted-foreground">Worst loss streak</span>
+                      <span className="font-numeric text-sm tabular-nums text-loss">
+                        {streaks.worstLossStreak}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {setups.length > 0 && (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Best setups</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      {bestSetups.map((s) => (
+                        <div
+                          key={s.name}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span>
+                            {s.name}{" "}
+                            <span className="text-xs text-muted-foreground">
+                              ({s.count})
+                            </span>
+                          </span>
+                          <span className="font-numeric tabular-nums text-profit">
+                            {formatCurrency(s.netPnl)}
+                          </span>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Worst setups</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      {worstSetups.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No losing setups yet.
+                        </p>
+                      ) : (
+                        worstSetups.map((s) => (
+                          <div
+                            key={s.name}
+                            className="flex items-center justify-between text-sm"
+                          >
+                            <span>
+                              {s.name}{" "}
+                              <span className="text-xs text-muted-foreground">
+                                ({s.count})
+                              </span>
+                            </span>
+                            <span className="font-numeric tabular-nums text-loss">
+                              {formatCurrency(s.netPnl)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

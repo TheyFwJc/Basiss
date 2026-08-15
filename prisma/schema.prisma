@@ -1,0 +1,540 @@
+// Prisma schema for Basis — a professional trading journal.
+// See ARCHITECTURE.md for the rationale behind model boundaries.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  name         String?
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  settings            UserSettings?
+  tradingAccounts     TradingAccount[]
+  trades              Trade[]
+  strategies          Strategy[]
+  playbooks           Playbook[]
+  checklists          Checklist[]
+  tags                Tag[]
+  mistakes            Mistake[]
+  screenshots         Screenshot[]
+  journalEntries      JournalEntry[]
+  goals               Goal[]
+  importJobs          ImportJob[]
+  importMappings      ImportMapping[]
+  notifications       Notification[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+model UserSettings {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  theme                  String   @default("dark")
+  baseCurrency           String   @default("USD")
+  timezone               String   @default("America/New_York")
+  defaultRiskPerTradePct Decimal? @db.Decimal(6, 3)
+  maxDailyLossPct        Decimal? @db.Decimal(6, 3)
+  maxWeeklyLossPct       Decimal? @db.Decimal(6, 3)
+  notificationsEnabled   Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Trading accounts
+// ---------------------------------------------------------------------------
+
+enum TradingAccountType {
+  BROKERAGE
+  FUTURES
+  FOREX
+  CRYPTO
+  PROP_FIRM
+  PAPER
+  OTHER
+}
+
+enum TradingAccountStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+model TradingAccount {
+  id              String               @id @default(cuid())
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  broker          String?
+  accountType     TradingAccountType
+  startingBalance Decimal              @db.Decimal(20, 8)
+  currency        String               @default("USD")
+  status          TradingAccountStatus @default(ACTIVE)
+  notes           String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  trades          Trade[]
+  equitySnapshots EquitySnapshot[]
+  importJobs      ImportJob[]
+
+  @@index([userId])
+}
+
+model EquitySnapshot {
+  id               String         @id @default(cuid())
+  tradingAccountId String
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  date             DateTime
+  balance          Decimal        @db.Decimal(20, 8)
+  deposits         Decimal        @default(0) @db.Decimal(20, 8)
+  withdrawals      Decimal        @default(0) @db.Decimal(20, 8)
+  realizedPnl      Decimal        @default(0) @db.Decimal(20, 8)
+  fees             Decimal        @default(0) @db.Decimal(20, 8)
+  adjustments      Decimal        @default(0) @db.Decimal(20, 8)
+  createdAt        DateTime       @default(now())
+
+  @@unique([tradingAccountId, date])
+  @@index([tradingAccountId])
+}
+
+// ---------------------------------------------------------------------------
+// Trades & executions
+// ---------------------------------------------------------------------------
+
+enum AssetClass {
+  EQUITY
+  OPTION
+  FUTURES
+  FOREX
+  CRYPTO
+  OTHER
+}
+
+enum TradeDirection {
+  LONG
+  SHORT
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+}
+
+enum TradingSession {
+  PRE_MARKET
+  OPEN
+  MIDDAY
+  POWER_HOUR
+  AFTER_HOURS
+  OVERNIGHT
+}
+
+enum ExecutionSide {
+  BUY
+  SELL
+}
+
+model Trade {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccountId String
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+
+  symbol     String
+  assetClass AssetClass
+  direction  TradeDirection
+  status     TradeStatus    @default(OPEN)
+
+  // Derived from executions by the P&L engine — never hand-edited once executions exist.
+  quantity      Decimal   @db.Decimal(20, 8)
+  avgEntryPrice Decimal   @db.Decimal(20, 8)
+  avgExitPrice  Decimal?  @db.Decimal(20, 8)
+  entryAt       DateTime
+  exitAt        DateTime?
+
+  stopLoss   Decimal? @db.Decimal(20, 8)
+  takeProfit Decimal? @db.Decimal(20, 8)
+
+  fees       Decimal  @default(0) @db.Decimal(20, 8)
+  commission Decimal  @default(0) @db.Decimal(20, 8)
+  grossPnl   Decimal? @db.Decimal(20, 8)
+  netPnl     Decimal? @db.Decimal(20, 8)
+
+  riskAmount  Decimal? @db.Decimal(20, 8)
+  riskPercent Decimal? @db.Decimal(8, 4)
+  rMultiple   Decimal? @db.Decimal(10, 4)
+
+  strategyId String?
+  strategy   Strategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  playbookId String?
+  playbook   Playbook? @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+
+  session         TradingSession?
+  marketCondition String?
+
+  emotionBefore   String?
+  emotionDuring   String?
+  emotionAfter    String?
+  confidence      Int?
+  executionRating Int?
+  ruleAdherence   Int?
+
+  notesBefore         String?
+  notesDuring         String?
+  notesAfter          String?
+  reviewWhatWentWell  String?
+  reviewWhatWentWrong String?
+  reviewWhatToChange  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  executions       Execution[]
+  tags             TradeTag[]
+  mistakes         TradeMistake[]
+  screenshots      Screenshot[]
+  checklistEntries TradeChecklistItem[]
+
+  @@index([userId])
+  @@index([tradingAccountId])
+  @@index([userId, entryAt])
+  @@index([symbol])
+}
+
+model Execution {
+  id         String        @id @default(cuid())
+  tradeId    String
+  trade      Trade         @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  side       ExecutionSide
+  quantity   Decimal       @db.Decimal(20, 8)
+  price      Decimal       @db.Decimal(20, 8)
+  executedAt DateTime
+  fees       Decimal       @default(0) @db.Decimal(20, 8)
+  commission Decimal       @default(0) @db.Decimal(20, 8)
+  createdAt  DateTime      @default(now())
+
+  @@index([tradeId])
+}
+
+// ---------------------------------------------------------------------------
+// Strategies & playbooks
+// ---------------------------------------------------------------------------
+
+model Strategy {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  rules            String?
+  entryCriteria    String?
+  exitCriteria     String?
+  stopLossRules    String?
+  takeProfitRules  String?
+  timeframe        String?
+  marketConditions String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  trades      Trade[]
+  screenshots Screenshot[]
+
+  @@index([userId])
+}
+
+model Playbook {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name             String
+  setupDescription String?
+  entryRules       String?
+  stopRules        String?
+  targetRules      String?
+  invalidations    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  trades      Trade[]
+  checklists  Checklist[]
+  screenshots Screenshot[]
+
+  @@index([userId])
+}
+
+model Checklist {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playbookId String?
+  playbook   Playbook? @relation(fields: [playbookId], references: [id], onDelete: SetNull)
+  name       String
+  createdAt  DateTime  @default(now())
+
+  items ChecklistItem[]
+
+  @@index([userId])
+}
+
+model ChecklistItem {
+  id          String    @id @default(cuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  label       String
+  sortOrder   Int       @default(0)
+
+  tradeEntries TradeChecklistItem[]
+
+  @@index([checklistId])
+}
+
+model TradeChecklistItem {
+  id              String        @id @default(cuid())
+  tradeId         String
+  trade           Trade         @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  checklistItemId String
+  checklistItem   ChecklistItem @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+  completed       Boolean       @default(false)
+
+  @@unique([tradeId, checklistItemId])
+}
+
+// ---------------------------------------------------------------------------
+// Tags & mistakes
+// ---------------------------------------------------------------------------
+
+model Tag {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+
+  trades TradeTag[]
+
+  @@unique([userId, name])
+}
+
+model TradeTag {
+  tradeId String
+  trade   Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  tagId   String
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([tradeId, tagId])
+}
+
+model Mistake {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  trades TradeMistake[]
+
+  @@unique([userId, name])
+}
+
+model TradeMistake {
+  tradeId   String
+  trade     Trade   @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  mistakeId String
+  mistake   Mistake @relation(fields: [mistakeId], references: [id], onDelete: Cascade)
+
+  @@id([tradeId, mistakeId])
+}
+
+// ---------------------------------------------------------------------------
+// Screenshots
+// ---------------------------------------------------------------------------
+
+enum ScreenshotKind {
+  ENTRY
+  EXIT
+  BEFORE
+  AFTER
+  OTHER
+}
+
+model Screenshot {
+  id      String         @id @default(cuid())
+  userId  String
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind    ScreenshotKind @default(OTHER)
+  url     String
+  caption String?
+
+  tradeId        String?
+  trade          Trade?        @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  strategyId     String?
+  strategy       Strategy?     @relation(fields: [strategyId], references: [id], onDelete: Cascade)
+  playbookId     String?
+  playbook       Playbook?     @relation(fields: [playbookId], references: [id], onDelete: Cascade)
+  journalEntryId String?
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([tradeId])
+}
+
+// ---------------------------------------------------------------------------
+// Journal
+// ---------------------------------------------------------------------------
+
+model JournalEntry {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            DateTime @db.Date
+  marketOverview  String?
+  tradingPlan     String?
+  goals           String?
+  mentalState     String?
+  importantLevels String?
+  newsEvents      String?
+  endOfDayReview  String?
+  lessonsLearned  String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  screenshots Screenshot[]
+
+  @@unique([userId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Goals
+// ---------------------------------------------------------------------------
+
+enum GoalMetric {
+  MAX_DAILY_LOSS
+  MONTHLY_PNL_TARGET
+  TRADE_COUNT
+  WIN_RATE
+  AVERAGE_R
+  RULE_FOLLOWING
+}
+
+enum GoalPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+model Goal {
+  id          String     @id @default(cuid())
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metric      GoalMetric
+  period      GoalPeriod
+  targetValue Decimal    @db.Decimal(20, 8)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Import
+// ---------------------------------------------------------------------------
+
+enum ImportStatus {
+  PENDING
+  MAPPING
+  VALIDATING
+  READY
+  IMPORTING
+  COMPLETED
+  FAILED
+}
+
+model ImportJob {
+  id               String          @id @default(cuid())
+  userId           String
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccountId String?
+  tradingAccount   TradingAccount? @relation(fields: [tradingAccountId], references: [id], onDelete: SetNull)
+  broker           String?
+  fileName         String
+  status           ImportStatus    @default(PENDING)
+  rowCount         Int             @default(0)
+  importedCount    Int             @default(0)
+  skippedCount     Int             @default(0)
+  errorCount       Int             @default(0)
+  errorLog         String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([userId])
+}
+
+model ImportMapping {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broker    String
+  mapping   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, broker])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+enum NotificationType {
+  DAILY_LOSS_LIMIT
+  WEEKLY_DRAWDOWN
+  MISSING_JOURNAL
+  REVIEW_REMINDER
+  RISK_LIMIT
+  WEEKLY_REVIEW
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+}

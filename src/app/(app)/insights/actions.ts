@@ -1,0 +1,142 @@
+"use server";
+
+import Anthropic from "@anthropic-ai/sdk";
+import { auth } from "@/auth";
+import { db } from "@/lib/db";
+import { buildTradingSummary } from "@/lib/ai/build-summary";
+import type { AnalyticsTrade } from "@/lib/analytics";
+
+/**
+ * AI-assisted analysis (Phase 8): Claude reviews the user's own aggregated
+ * trading statistics — never raw trade rows, never market data — and writes
+ * a plain-language performance review. The system prompt is the only thing
+ * standing between "here's what your own data shows" and "here's what AAPL
+ * will do next week"; it earns the verbosity below.
+ */
+const SYSTEM_PROMPT = `You are a trading performance analyst inside Basis, a trading journal app. You are given one JSON object: aggregated statistics computed from a trader's own historical, closed trades in this app. You are never given raw trade rows, account numbers, personal information, or any live market data.
+
+Your job is to help the trader understand their own patterns — not to advise them on what to trade next.
+
+Hard rules, no exceptions:
+- Never predict future price movement, market direction, or the future performance of any symbol or instrument.
+- Never give financial, investment, or trading advice — no "you should buy/sell/hold X", no position sizing recommendations, no market timing calls.
+- Never use guaranteed-outcome language. Describe correlations and tendencies ("trades tagged with X have a lower win rate"), never certainties ("doing Y will fix this" or "you will improve if..."). Frame suggestions as things worth investigating, not prescriptions.
+- Every claim must be traceable to a number actually present in the JSON you're given. Do not invent or assume data that isn't there.
+- If a breakdown has very few trades (single digits), say so explicitly and caveat the pattern as low-confidence rather than treating it as established.
+- If the trader has fewer than roughly 20 closed trades in total, lead with a note that the sample is still small and patterns may not hold up.
+
+What to do:
+- Identify the most notable patterns in the data: where performance is strongest/weakest (symbol, strategy, session, day, time of day, holding time, risk size), what mistakes are costing the most, and whether confidence/execution-quality/rule-adherence ratings correlate with outcomes.
+- Reference concrete numbers from the data (win rates, net P&L, R-multiples, trade counts) rather than vague language.
+- If goals are included, note whether they're on track and why, based on the data.
+- Write in direct, concrete prose for the trader themselves — a few short sections with plain headers, not a wall of text and not a bulleted data dump. Aim for something a trader would actually want to read, roughly 300-500 words.`;
+
+export type InsightsResult = { error: string } | { insight: string };
+
+async function requireUserId() {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Not authenticated");
+  return session.user.id;
+}
+
+const MIN_TRADES_FOR_INSIGHTS = 10;
+
+export async function generateInsightsAction(): Promise<InsightsResult> {
+  const userId = await requireUserId();
+
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return {
+      error:
+        "AI insights aren't configured yet — add ANTHROPIC_API_KEY to the server's environment to enable this feature.",
+    };
+  }
+
+  const [trades, goals, accounts] = await Promise.all([
+    db.trade.findMany({
+      where: { userId, status: "CLOSED" },
+      include: { strategy: true, mistakes: { include: { mistake: true } } },
+    }),
+    db.goal.findMany({ where: { userId } }),
+    db.tradingAccount.findMany({ where: { userId }, select: { startingBalance: true } }),
+  ]);
+
+  if (trades.length < MIN_TRADES_FOR_INSIGHTS) {
+    return {
+      error: `You need at least ${MIN_TRADES_FOR_INSIGHTS} closed trades before there's enough data for a meaningful analysis — you have ${trades.length} so far.`,
+    };
+  }
+
+  const analyticsTrades: AnalyticsTrade[] = trades.map((t) => ({
+    symbol: t.symbol,
+    direction: t.direction,
+    netPnl: t.netPnl,
+    rMultiple: t.rMultiple,
+    riskPercent: t.riskPercent,
+    status: t.status,
+    entryAt: t.entryAt,
+    exitAt: t.exitAt,
+    strategyId: t.strategyId,
+    strategyName: t.strategy?.name ?? null,
+    session: t.session,
+    confidence: t.confidence,
+    executionRating: t.executionRating,
+    ruleAdherence: t.ruleAdherence,
+    mistakes: t.mistakes.map((tm) => ({ id: tm.mistake.id, name: tm.mistake.name })),
+  }));
+
+  const totalStartingBalance = accounts.reduce(
+    (sum, a) => sum + Number(a.startingBalance),
+    0
+  );
+  const goalRows = goals.map((g) => ({
+    metric: g.metric,
+    period: g.period,
+    targetValue: Number(g.targetValue),
+  }));
+
+  const summary = buildTradingSummary(analyticsTrades, goalRows, totalStartingBalance, new Date());
+
+  const client = new Anthropic();
+
+  try {
+    const stream = client.messages.stream({
+      model: "claude-opus-5",
+      max_tokens: 4096,
+      thinking: { type: "adaptive" },
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: `Here is my aggregated trading performance data as JSON. Write me a performance review based only on this.\n\n${JSON.stringify(summary, null, 2)}`,
+        },
+      ],
+    });
+    const response = await stream.finalMessage();
+
+    if (response.stop_reason === "refusal") {
+      return {
+        error: "The analysis couldn't be generated for this data. Please try again.",
+      };
+    }
+
+    const textBlock = response.content.find(
+      (block): block is Anthropic.TextBlock => block.type === "text"
+    );
+    if (!textBlock?.text) {
+      return { error: "No analysis was returned. Please try again." };
+    }
+
+    return { insight: textBlock.text };
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError) {
+      return { error: "The configured ANTHROPIC_API_KEY was rejected. Check the server's environment." };
+    }
+    if (error instanceof Anthropic.RateLimitError) {
+      return { error: "Rate limited by the AI provider — try again in a moment." };
+    }
+    if (error instanceof Anthropic.APIError) {
+      return { error: `AI request failed: ${error.message}` };
+    }
+    return { error: "Something went wrong generating insights. Please try again." };
+  }
+}

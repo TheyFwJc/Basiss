@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "basis-dev",
+      "runtimeExecutable": "D:\\claude\\dev.cmd",
+      "runtimeArgs": [],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}
