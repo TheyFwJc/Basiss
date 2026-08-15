@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import type { TradeInput } from "@/lib/validations/trade";
 import { createTradeAction, updateTradeAction } from "./actions";
 
@@ -45,11 +46,12 @@ const ASSET_CLASS_ITEMS = Object.fromEntries(
 const SESSION_ITEMS = Object.fromEntries(
   SESSION_OPTIONS.map((o) => [o.value, o.label])
 );
-const DIRECTION_ITEMS = { LONG: "Long", SHORT: "Short" };
-const SIDE_ITEMS = { BUY: "Buy", SELL: "Sell" };
 
-type ExecutionRow = {
-  side: "BUY" | "SELL";
+/** A single fill's editable fields. Which side it counts as (BUY/SELL) is
+ * implied entirely by whether it's an entry or exit fill plus the trade's
+ * direction — never stored on the row itself, so flipping Long/Short never
+ * needs to touch already-entered data. */
+type FillRow = {
   quantity: string;
   price: string;
   executedAt: string;
@@ -64,15 +66,18 @@ function nowLocalDateTime() {
   return d.toISOString().slice(0, 16);
 }
 
-function emptyExecution(side: "BUY" | "SELL"): ExecutionRow {
+function emptyFill(): FillRow {
   return {
-    side,
     quantity: "",
     price: "",
     executedAt: nowLocalDateTime(),
     fees: "0",
     commission: "0",
   };
+}
+
+function entrySideFor(direction: "LONG" | "SHORT"): "BUY" | "SELL" {
+  return direction === "LONG" ? "BUY" : "SELL";
 }
 
 export type TradeFormDefaults = {
@@ -115,6 +120,131 @@ export type ChecklistOption = {
   items: { id: string; label: string }[];
 };
 
+function splitDefaultFills(defaults: TradeFormDefaults | undefined) {
+  if (!defaults) {
+    return { entryFills: [emptyFill()], exitFills: [emptyFill()] };
+  }
+  const entrySide = entrySideFor(defaults.direction);
+  const toFill = (e: TradeFormDefaults["executions"][number]): FillRow => ({
+    quantity: e.quantity,
+    price: e.price,
+    executedAt: e.executedAt.slice(0, 16),
+    fees: e.fees,
+    commission: e.commission,
+  });
+  const entryFills = defaults.executions.filter((e) => e.side === entrySide).map(toFill);
+  const exitFills = defaults.executions.filter((e) => e.side !== entrySide).map(toFill);
+  return {
+    entryFills: entryFills.length > 0 ? entryFills : [emptyFill()],
+    exitFills,
+  };
+}
+
+function FillRows({
+  rows,
+  label,
+  accentClass,
+  onAdd,
+  onUpdate,
+  onRemove,
+  minRows,
+}: {
+  rows: FillRow[];
+  label: string;
+  accentClass: string;
+  onAdd: () => void;
+  onUpdate: (index: number, patch: Partial<FillRow>) => void;
+  onRemove: (index: number) => void;
+  minRows: number;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <span className={cn("text-sm font-medium", accentClass)}>{label}</span>
+        <Button type="button" variant="outline" size="xs" onClick={onAdd}>
+          <Plus className="size-3" />
+          Add fill
+        </Button>
+      </div>
+      {rows.length === 0 && (
+        <p className="rounded-md border border-dashed border-border px-3 py-3 text-xs text-muted-foreground">
+          No fills yet — leave empty if the position is still open.
+        </p>
+      )}
+      {rows.map((row, index) => (
+        <div
+          key={index}
+          className="grid grid-cols-2 items-end gap-2 rounded-md border border-border p-2 sm:grid-cols-5"
+        >
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Quantity</Label>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              value={row.quantity}
+              onChange={(e) => onUpdate(index, { quantity: e.target.value })}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Price</Label>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              value={row.price}
+              onChange={(e) => onUpdate(index, { price: e.target.value })}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Time</Label>
+            <Input
+              type="datetime-local"
+              value={row.executedAt}
+              onChange={(e) => onUpdate(index, { executedAt: e.target.value })}
+              required
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs">Fees</Label>
+            <Input
+              type="number"
+              step="any"
+              min="0"
+              value={row.fees}
+              onChange={(e) => onUpdate(index, { fees: e.target.value })}
+            />
+          </div>
+          <div className="flex items-end gap-1">
+            <div className="flex flex-1 flex-col gap-1">
+              <Label className="text-xs">Commission</Label>
+              <Input
+                type="number"
+                step="any"
+                min="0"
+                value={row.commission}
+                onChange={(e) => onUpdate(index, { commission: e.target.value })}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              disabled={rows.length <= minRows}
+              onClick={() => onRemove(index)}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function TradeForm({
   accounts,
   strategies,
@@ -151,16 +281,10 @@ export function TradeForm({
   const [direction, setDirection] = useState<"LONG" | "SHORT">(
     defaults?.direction ?? "LONG"
   );
-  const [executions, setExecutions] = useState<ExecutionRow[]>(
-    defaults?.executions.map((e) => ({
-      side: e.side,
-      quantity: e.quantity,
-      price: e.price,
-      executedAt: e.executedAt.slice(0, 16),
-      fees: e.fees,
-      commission: e.commission,
-    })) ?? [emptyExecution("BUY")]
-  );
+
+  const initialFills = splitDefaultFills(defaults);
+  const [entryFills, setEntryFills] = useState<FillRow[]>(initialFills.entryFills);
+  const [exitFills, setExitFills] = useState<FillRow[]>(initialFills.exitFills);
 
   const [stopLoss, setStopLoss] = useState(defaults?.stopLoss ?? "");
   const [takeProfit, setTakeProfit] = useState(defaults?.takeProfit ?? "");
@@ -208,37 +332,45 @@ export function TradeForm({
     (c) => c.playbookId === null || c.playbookId === playbookId
   );
 
-  function updateExecution(index: number, patch: Partial<ExecutionRow>) {
-    setExecutions((rows) =>
-      rows.map((row, i) => (i === index ? { ...row, ...patch } : row))
-    );
+  function updateEntry(index: number, patch: Partial<FillRow>) {
+    setEntryFills((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  }
+  function updateExit(index: number, patch: Partial<FillRow>) {
+    setExitFills((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
-  function addExecution(side: "BUY" | "SELL") {
-    setExecutions((rows) => [...rows, emptyExecution(side)]);
-  }
-
-  function removeExecution(index: number) {
-    setExecutions((rows) => rows.filter((_, i) => i !== index));
-  }
+  const entrySide = entrySideFor(direction);
+  const exitSide: "BUY" | "SELL" = entrySide === "BUY" ? "SELL" : "BUY";
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const input: TradeInput = {
-      tradingAccountId,
-      symbol,
-      assetClass: assetClass as TradeInput["assetClass"],
-      direction,
-      executions: executions.map((row) => ({
-        side: row.side,
+    const executions = [
+      ...entryFills.map((row) => ({
+        side: entrySide,
         quantity: row.quantity as unknown as number,
         price: row.price as unknown as number,
         executedAt: row.executedAt,
         fees: (row.fees || "0") as unknown as number,
         commission: (row.commission || "0") as unknown as number,
       })),
+      ...exitFills.map((row) => ({
+        side: exitSide,
+        quantity: row.quantity as unknown as number,
+        price: row.price as unknown as number,
+        executedAt: row.executedAt,
+        fees: (row.fees || "0") as unknown as number,
+        commission: (row.commission || "0") as unknown as number,
+      })),
+    ];
+
+    const input: TradeInput = {
+      tradingAccountId,
+      symbol,
+      assetClass: assetClass as TradeInput["assetClass"],
+      direction,
+      executions,
       stopLoss: (stopLoss || undefined) as unknown as number | undefined,
       takeProfit: (takeProfit || undefined) as unknown as number | undefined,
       strategyId,
@@ -333,150 +465,63 @@ export function TradeForm({
             </div>
             <div className="flex flex-col gap-2">
               <Label>Direction</Label>
-              <Select
-                value={direction}
-                items={DIRECTION_ITEMS}
-                onValueChange={(v) => setDirection(v as "LONG" | "SHORT")}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="LONG">Long</SelectItem>
-                  <SelectItem value="SHORT">Short</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDirection("LONG")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-all",
+                    direction === "LONG"
+                      ? "border-profit/40 bg-profit-muted text-profit shadow-sm"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <TrendingUp className="size-4" />
+                  Long
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDirection("SHORT")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition-all",
+                    direction === "SHORT"
+                      ? "border-loss/40 bg-loss-muted text-loss shadow-sm"
+                      : "border-border text-muted-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <TrendingDown className="size-4" />
+                  Short
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label>Executions</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => addExecution("BUY")}
-                >
-                  <Plus className="size-3" />
-                  Buy
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => addExecution("SELL")}
-                >
-                  <Plus className="size-3" />
-                  Sell
-                </Button>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              A trade can have multiple entries and exits — add one row per
-              fill. Leave only entry rows if the position is still open.
-            </p>
-            <div className="flex flex-col gap-2">
-              {executions.map((row, index) => (
-                <div
-                  key={index}
-                  className="grid grid-cols-2 items-end gap-2 rounded-md border border-border p-2 sm:grid-cols-6"
-                >
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs">Side</Label>
-                    <Select
-                      value={row.side}
-                      items={SIDE_ITEMS}
-                      onValueChange={(v) =>
-                        updateExecution(index, { side: v as "BUY" | "SELL" })
-                      }
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="BUY">Buy</SelectItem>
-                        <SelectItem value="SELL">Sell</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs">Quantity</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={row.quantity}
-                      onChange={(e) =>
-                        updateExecution(index, { quantity: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs">Price</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={row.price}
-                      onChange={(e) =>
-                        updateExecution(index, { price: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs">Time</Label>
-                    <Input
-                      type="datetime-local"
-                      value={row.executedAt}
-                      onChange={(e) =>
-                        updateExecution(index, { executedAt: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs">Fees</Label>
-                    <Input
-                      type="number"
-                      step="any"
-                      min="0"
-                      value={row.fees}
-                      onChange={(e) =>
-                        updateExecution(index, { fees: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-end gap-1">
-                    <div className="flex flex-1 flex-col gap-1">
-                      <Label className="text-xs">Commission</Label>
-                      <Input
-                        type="number"
-                        step="any"
-                        min="0"
-                        value={row.commission}
-                        onChange={(e) =>
-                          updateExecution(index, { commission: e.target.value })
-                        }
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="shrink-0"
-                      disabled={executions.length === 1}
-                      onClick={() => removeExecution(index)}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <p className="text-xs text-muted-foreground">
+            A new trade starts with one entry and one exit fill, since most
+            trades you log are already closed — delete the exit fill if
+            you&apos;re still in the position. Add more fills for partial
+            entries/exits.
+          </p>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FillRows
+              rows={entryFills}
+              label={`Entries (${entrySide === "BUY" ? "Buy" : "Sell"})`}
+              accentClass="text-profit"
+              onAdd={() => setEntryFills((rows) => [...rows, emptyFill()])}
+              onUpdate={updateEntry}
+              onRemove={(i) => setEntryFills((rows) => rows.filter((_, idx) => idx !== i))}
+              minRows={1}
+            />
+            <FillRows
+              rows={exitFills}
+              label={`Exits (${exitSide === "BUY" ? "Buy" : "Sell"})`}
+              accentClass="text-loss"
+              onAdd={() => setExitFills((rows) => [...rows, emptyFill()])}
+              onUpdate={updateExit}
+              onRemove={(i) => setExitFills((rows) => rows.filter((_, idx) => idx !== i))}
+              minRows={0}
+            />
           </div>
         </CardContent>
       </Card>

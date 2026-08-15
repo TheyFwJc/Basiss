@@ -98,6 +98,16 @@ export default async function DashboardPage() {
   const bestSetups = setups.slice(0, 3);
   const worstSetups = setups.slice(-3).reverse().filter((s) => !bestSetups.includes(s));
 
+  const closedTrades = trades.filter((t) => t.netPnl != null);
+  const bestTrade = closedTrades.reduce<typeof closedTrades[number] | null>(
+    (best, t) => (!best || Number(t.netPnl) > Number(best.netPnl) ? t : best),
+    null
+  );
+  const worstTrade = closedTrades.reduce<typeof closedTrades[number] | null>(
+    (worst, t) => (!worst || Number(t.netPnl) < Number(worst.netPnl) ? t : worst),
+    null
+  );
+
   const recentTrades = trades.slice(0, 5);
 
   return (
@@ -393,6 +403,71 @@ export default async function DashboardPage() {
                   </CardContent>
                 </Card>
               </div>
+
+              {(bestTrade || worstTrade) && (
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Best trade</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {bestTrade ? (
+                        <Link
+                          href={`/trades/${bestTrade.id}`}
+                          className="flex items-center justify-between rounded-md border border-profit/30 bg-profit-muted px-3 py-2 text-sm transition-colors hover:bg-profit-muted/80"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={bestTrade.direction === "LONG" ? "default" : "secondary"}
+                            >
+                              {bestTrade.direction}
+                            </Badge>
+                            <span className="font-medium">{bestTrade.symbol}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(bestTrade.entryAt)}
+                            </span>
+                          </div>
+                          <span className="font-numeric tabular-nums text-profit">
+                            {formatCurrency(bestTrade.netPnl!.toString(), bestTrade.tradingAccount.currency)}
+                          </span>
+                        </Link>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No closed trades yet.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Worst trade</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {worstTrade ? (
+                        <Link
+                          href={`/trades/${worstTrade.id}`}
+                          className="flex items-center justify-between rounded-md border border-loss/30 bg-loss-muted px-3 py-2 text-sm transition-colors hover:bg-loss-muted/80"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={worstTrade.direction === "LONG" ? "default" : "secondary"}
+                            >
+                              {worstTrade.direction}
+                            </Badge>
+                            <span className="font-medium">{worstTrade.symbol}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(worstTrade.entryAt)}
+                            </span>
+                          </div>
+                          <span className="font-numeric tabular-nums text-loss">
+                            {formatCurrency(worstTrade.netPnl!.toString(), worstTrade.tradingAccount.currency)}
+                          </span>
+                        </Link>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No closed trades yet.</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
 
               {setups.length > 0 && (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
