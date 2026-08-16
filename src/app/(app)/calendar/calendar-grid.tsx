@@ -242,6 +242,9 @@ export function CalendarGrid({
                             : "border-border/60"
                     }`}
                   >
+                    <span className="text-[10px] font-medium text-muted-foreground">
+                      Week {weekIndex + 1}
+                    </span>
                     {weekTrades.length > 0 ? (
                       <>
                         <span
@@ -256,34 +259,40 @@ export function CalendarGrid({
                         </span>
                       </>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="mt-1 text-xs text-muted-foreground">—</span>
                     )}
                   </div>
 
                   {/* Mobile: week total as a full-width bar under the week's days. */}
-                  {weekTrades.length > 0 && (
-                    <div
-                      className={`col-span-7 -mt-0.5 mb-1 flex items-center justify-center gap-1.5 rounded-md border border-dashed px-2 py-1 text-xs sm:hidden ${
-                        weekNetPnl > 0
+                  <div
+                    className={`col-span-7 -mt-0.5 mb-1 flex items-center justify-center gap-1.5 rounded-md border border-dashed px-2 py-1 text-xs sm:hidden ${
+                      weekTrades.length === 0
+                        ? "border-border/60"
+                        : weekNetPnl > 0
                           ? "border-profit/30"
                           : weekNetPnl < 0
                             ? "border-loss/30"
                             : "border-border/60"
-                      }`}
-                    >
-                      <span className="text-muted-foreground">Week:</span>
-                      <span
-                        className={`font-numeric font-semibold tabular-nums ${
-                          weekNetPnl > 0 ? "text-profit" : weekNetPnl < 0 ? "text-loss" : ""
-                        }`}
-                      >
-                        {formatCurrency(weekNetPnl)}
-                      </span>
-                      <span className="text-muted-foreground">
-                        · {weekTrades.length} trade{weekTrades.length === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                  )}
+                    }`}
+                  >
+                    <span className="text-muted-foreground">Week {weekIndex + 1}:</span>
+                    {weekTrades.length > 0 ? (
+                      <>
+                        <span
+                          className={`font-numeric font-semibold tabular-nums ${
+                            weekNetPnl > 0 ? "text-profit" : weekNetPnl < 0 ? "text-loss" : ""
+                          }`}
+                        >
+                          {formatCurrency(weekNetPnl)}
+                        </span>
+                        <span className="text-muted-foreground">
+                          · {weekTrades.length} trade{weekTrades.length === 1 ? "" : "s"}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </div>
                 </>
               )}
             </div>
