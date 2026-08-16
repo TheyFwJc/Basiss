@@ -30,7 +30,7 @@ export default async function AppLayout({
       take: 20,
     }),
     getSubscription(userId),
-    db.user.findUniqueOrThrow({ where: { id: userId }, select: { welcomedAt: true } }),
+    db.user.findUniqueOrThrow({ where: { id: userId }, select: { welcomedAt: true, isAdmin: true } }),
   ]);
 
   return (
@@ -39,6 +39,7 @@ export default async function AppLayout({
       userEmail={session.user.email}
       isPaidPlan={subscription.effectivePlan !== "FREE"}
       isNewUser={user.welcomedAt === null}
+      isAdmin={user.isAdmin}
       notifications={notifications.map((n) => ({
         id: n.id,
         type: n.type,

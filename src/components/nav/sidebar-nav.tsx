@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, Zap } from "lucide-react";
+import { CreditCard, Zap, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
 
-export function SidebarNav({ isPaidPlan }: { isPaidPlan: boolean }) {
+export function SidebarNav({
+  isPaidPlan,
+  isAdmin,
+}: {
+  isPaidPlan: boolean;
+  isAdmin: boolean;
+}) {
   const pathname = usePathname();
 
   const billingItem = isPaidPlan
@@ -42,6 +48,28 @@ export function SidebarNav({ isPaidPlan }: { isPaidPlan: boolean }) {
           </Link>
         );
       })}
+
+      {isAdmin && (
+        <div className="mt-1 border-t border-sidebar-border pt-1">
+          {(() => {
+            const isActive = pathname === "/admin" || pathname.startsWith("/admin/");
+            return (
+              <Link
+                href="/admin"
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+                )}
+              >
+                <Flag className="size-4 shrink-0" strokeWidth={2} />
+                Admin
+              </Link>
+            );
+          })()}
+        </div>
+      )}
 
       <div className="mt-1 border-t border-sidebar-border pt-1">
         {(() => {
