@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { POPULAR_SYMBOLS } from "@/lib/symbols";
 import type { TradeInput } from "@/lib/validations/trade";
 import { createTradeAction, updateTradeAction } from "./actions";
 
@@ -251,6 +252,7 @@ export function TradeForm({
   playbooks,
   mistakes,
   checklists,
+  recentSymbols = [],
   defaults,
 }: {
   accounts: { id: string; name: string }[];
@@ -258,8 +260,13 @@ export function TradeForm({
   playbooks: { id: string; name: string }[];
   mistakes: { id: string; name: string }[];
   checklists: ChecklistOption[];
+  recentSymbols?: string[];
   defaults?: TradeFormDefaults;
 }) {
+  const symbolSuggestions = [
+    ...recentSymbols,
+    ...POPULAR_SYMBOLS.filter((s) => !recentSymbols.includes(s)),
+  ];
   const router = useRouter();
   const isEdit = !!defaults;
   const [pending, startTransition] = useTransition();
@@ -438,11 +445,18 @@ export function TradeForm({
               <Label htmlFor="symbol">Symbol</Label>
               <Input
                 id="symbol"
+                list="symbol-suggestions"
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                 placeholder="AAPL"
+                autoComplete="off"
                 required
               />
+              <datalist id="symbol-suggestions">
+                {symbolSuggestions.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
             </div>
             <div className="flex flex-col gap-2">
               <Label>Asset class</Label>

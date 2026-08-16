@@ -11,33 +11,42 @@ export default async function NewTradePage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [accounts, strategies, playbooks, mistakes, checklists] = await Promise.all([
-    db.tradingAccount.findMany({
-      where: { userId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.strategy.findMany({
-      where: { userId },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.playbook.findMany({
-      where: { userId },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.mistake.findMany({
-      where: { userId },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    db.checklist.findMany({
-      where: { userId },
-      orderBy: { name: "asc" },
-      include: { items: { orderBy: { sortOrder: "asc" } } },
-    }),
-  ]);
+  const [accounts, strategies, playbooks, mistakes, checklists, recentTrades] =
+    await Promise.all([
+      db.tradingAccount.findMany({
+        where: { userId },
+        orderBy: { createdAt: "asc" },
+        select: { id: true, name: true },
+      }),
+      db.strategy.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      db.playbook.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      db.mistake.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true },
+      }),
+      db.checklist.findMany({
+        where: { userId },
+        orderBy: { name: "asc" },
+        include: { items: { orderBy: { sortOrder: "asc" } } },
+      }),
+      db.trade.findMany({
+        where: { userId },
+        distinct: ["symbol"],
+        orderBy: { entryAt: "desc" },
+        select: { symbol: true },
+        take: 8,
+      }),
+    ]);
+  const recentSymbols = recentTrades.map((t) => t.symbol);
 
   if (accounts.length === 0) {
     return (
@@ -71,6 +80,7 @@ export default async function NewTradePage() {
         playbooks={playbooks}
         mistakes={mistakes}
         checklists={checklists}
+        recentSymbols={recentSymbols}
       />
     </div>
   );

@@ -13,7 +13,7 @@ export default async function EditTradePage({
   const session = await auth();
   const userId = session!.user.id;
 
-  const [trade, accounts, strategies, playbooks, mistakes, checklists] =
+  const [trade, accounts, strategies, playbooks, mistakes, checklists, recentTrades] =
     await Promise.all([
       db.trade.findFirst({
         where: { id, userId },
@@ -48,9 +48,17 @@ export default async function EditTradePage({
         orderBy: { name: "asc" },
         include: { items: { orderBy: { sortOrder: "asc" } } },
       }),
+      db.trade.findMany({
+        where: { userId },
+        distinct: ["symbol"],
+        orderBy: { entryAt: "desc" },
+        select: { symbol: true },
+        take: 8,
+      }),
     ]);
 
   if (!trade) notFound();
+  const recentSymbols = recentTrades.map((t) => t.symbol);
 
   return (
     <div>
@@ -64,6 +72,7 @@ export default async function EditTradePage({
         playbooks={playbooks}
         mistakes={mistakes}
         checklists={checklists}
+        recentSymbols={recentSymbols}
         defaults={{
           id: trade.id,
           tradingAccountId: trade.tradingAccountId,
