@@ -77,6 +77,7 @@ model User {
   notifications       Notification[]
   passwordResetTokens PasswordResetToken[]
   tradingViewWebhooks TradingViewWebhook[]
+  issueReports        IssueReport[]
 }
 
 /** Records processed Stripe webhook event IDs so a redelivered/duplicate
@@ -611,5 +612,22 @@ model Notification {
   createdAt DateTime         @default(now())
 
   @@unique([userId, dedupeKey])
+  @@index([userId])
+}
+
+/** A user-submitted bug/feedback report from the Help page. No triage
+ * workflow yet (status, replies) — just `resolved` so an eventual admin
+ * view can filter, deliberately minimal until report volume justifies more. */
+model IssueReport {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String
+  pageUrl     String
+  userAgent   String?
+  plan        SubscriptionPlan
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
   @@index([userId])
 }

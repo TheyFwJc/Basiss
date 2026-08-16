@@ -16,6 +16,7 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpAssistant } from "./help-assistant";
+import { IssueReportForm } from "./issue-report-form";
 
 type Section = {
   id: string;
@@ -242,8 +243,9 @@ export default function HelpPage() {
         description="What each part of Basis does, and how the numbers are calculated."
       />
 
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-4">
         <HelpAssistant />
+        <IssueReportForm />
       </div>
 
       <nav
