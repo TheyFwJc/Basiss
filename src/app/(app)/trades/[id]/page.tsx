@@ -14,6 +14,8 @@ import {
   formatSignedNumber,
 } from "@/lib/format";
 import { canUseFeature } from "@/lib/subscription";
+import { isAlpacaConfigured, fetchBars, timeframeForTrade, type Bar } from "@/lib/alpaca";
+import { TradePriceChart } from "@/components/trade-price-chart";
 import { DeleteTradeButton } from "./delete-trade-button";
 import { ReviewForm } from "./review-form";
 import { ScreenshotGallery } from "./screenshot-gallery";
@@ -54,6 +56,22 @@ export default async function TradeDetailPage({
   });
 
   if (!trade) notFound();
+
+  let priceChartError: string | null = null;
+  let priceChartBars: Bar[] = [];
+  if (trade.assetClass !== "EQUITY") {
+    priceChartError = "A price chart isn't available yet for non-equity trades.";
+  } else if (!isAlpacaConfigured()) {
+    priceChartError = "Add ALPACA_API_KEY_ID/ALPACA_API_SECRET_KEY to the server's environment to see a price chart here.";
+  } else {
+    const { timeframe, start, end } = timeframeForTrade(trade.entryAt, trade.exitAt);
+    const result = await fetchBars(trade.symbol, start, end, timeframe);
+    if ("error" in result) {
+      priceChartError = result.error;
+    } else {
+      priceChartBars = result.bars;
+    }
+  }
 
   const netPnl = trade.netPnl ? Number(trade.netPnl) : null;
   const pnlClass =
@@ -143,6 +161,26 @@ export default async function TradeDetailPage({
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Price chart</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {priceChartError ? (
+            <p className="text-sm text-muted-foreground">{priceChartError}</p>
+          ) : (
+            <TradePriceChart
+              bars={priceChartBars}
+              entryPrice={Number(trade.avgEntryPrice)}
+              entryAt={trade.entryAt.toISOString()}
+              exitPrice={trade.avgExitPrice ? Number(trade.avgExitPrice) : null}
+              exitAt={trade.exitAt ? trade.exitAt.toISOString() : null}
+              currency={trade.tradingAccount.currency}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
