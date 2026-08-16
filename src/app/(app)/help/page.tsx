@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HelpAssistant } from "./help-assistant";
 
 type Section = {
   id: string;
@@ -225,6 +226,10 @@ export default function HelpPage() {
         title="Help & FAQ"
         description="What each part of Basis does, and how the numbers are calculated."
       />
+
+      <div className="mb-6">
+        <HelpAssistant />
+      </div>
 
       <nav
         aria-label="Section links"

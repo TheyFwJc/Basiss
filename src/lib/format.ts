@@ -10,6 +10,22 @@ export function formatCurrency(
   }).format(amount);
 }
 
+/** A tighter currency format for space-constrained spots (calendar day
+ * cells) — no cents, and "$1.2K"-style compact notation once the amount
+ * gets large, so it never depends on the container being wide. */
+export function formatCurrencyCompact(
+  value: number | string,
+  currency: string = "USD"
+) {
+  const amount = typeof value === "string" ? Number(value) : value;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(amount);
+}
+
 export function formatDate(value: Date | string) {
   const date = typeof value === "string" ? new Date(value) : value;
   return new Intl.DateTimeFormat("en-US", {

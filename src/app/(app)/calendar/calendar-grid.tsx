@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { formatCurrency } from "@/lib/format";
+import { formatCurrency, formatCurrencyCompact } from "@/lib/format";
 
 export type CalendarTrade = {
   id: string;
@@ -146,7 +146,7 @@ export function CalendarGrid({
       </div>
 
       <div
-        className={`grid grid-cols-7 gap-1.5 ${showWeeklyMonthlyTotals ? "sm:grid-cols-8" : ""}`}
+        className={`grid grid-cols-7 gap-1 sm:gap-1.5 ${showWeeklyMonthlyTotals ? "sm:grid-cols-8" : ""}`}
       >
         {WEEKDAY_LABELS.map((label) => (
           <div
@@ -189,7 +189,7 @@ export function CalendarGrid({
                     type="button"
                     disabled={!hasTrades}
                     onClick={() => setSelectedDay(key)}
-                    className={`flex min-h-20 flex-col items-start rounded-md border p-1.5 text-left transition-colors sm:min-h-24 sm:p-2 ${
+                    className={`flex min-h-16 w-full min-w-0 flex-col items-start overflow-hidden rounded-md border p-1 text-left transition-colors sm:min-h-24 sm:p-2 ${
                       !inMonth
                         ? "border-transparent opacity-40"
                         : hasTrades
@@ -201,18 +201,26 @@ export function CalendarGrid({
                           : "border-border cursor-default"
                     }`}
                   >
-                    <span className="text-xs text-muted-foreground">{Number(key.slice(8, 10))}</span>
+                    <span className="text-[11px] text-muted-foreground sm:text-xs">
+                      {Number(key.slice(8, 10))}
+                    </span>
                     {hasTrades && (
                       <>
                         <span
-                          className={`mt-1 font-numeric text-xs font-semibold tabular-nums sm:text-sm ${
+                          className={`mt-1 w-full truncate font-numeric text-[11px] font-semibold tabular-nums sm:text-sm ${
                             netPnl > 0 ? "text-profit" : netPnl < 0 ? "text-loss" : ""
                           }`}
                         >
-                          {formatCurrency(netPnl)}
+                          <span className="sm:hidden">{formatCurrencyCompact(netPnl)}</span>
+                          <span className="hidden sm:inline">{formatCurrency(netPnl)}</span>
                         </span>
-                        <span className="mt-auto text-[10px] text-muted-foreground sm:text-xs">
-                          {dayTrades.length} trade{dayTrades.length === 1 ? "" : "s"} ·{" "}
+                        <span className="mt-auto w-full truncate text-[9px] text-muted-foreground sm:text-xs">
+                          {dayTrades.length}
+                          <span className="hidden sm:inline">
+                            {" "}
+                            trade{dayTrades.length === 1 ? "" : "s"}
+                          </span>
+                          {" · "}
                           {Math.round((wins / dayTrades.length) * 100)}%
                         </span>
                       </>
@@ -224,7 +232,7 @@ export function CalendarGrid({
                 <>
                   {/* Desktop: week total as a side column, same row as the 7 days. */}
                   <div
-                    className={`hidden min-h-20 flex-col items-center justify-center rounded-md border border-dashed p-1.5 text-center sm:flex sm:min-h-24 sm:p-2 ${
+                    className={`hidden min-h-20 w-full min-w-0 flex-col items-center justify-center overflow-hidden rounded-md border border-dashed p-1.5 text-center sm:flex sm:min-h-24 sm:p-2 ${
                       weekTrades.length === 0
                         ? "border-border/60"
                         : weekNetPnl > 0
@@ -237,7 +245,7 @@ export function CalendarGrid({
                     {weekTrades.length > 0 ? (
                       <>
                         <span
-                          className={`font-numeric text-xs font-semibold tabular-nums sm:text-sm ${
+                          className={`w-full truncate font-numeric text-xs font-semibold tabular-nums sm:text-sm ${
                             weekNetPnl > 0 ? "text-profit" : weekNetPnl < 0 ? "text-loss" : ""
                           }`}
                         >

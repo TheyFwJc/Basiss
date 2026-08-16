@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatCurrency, formatDate } from "./format";
+import { formatCurrency, formatCurrencyCompact, formatDate } from "./format";
 
 describe("formatCurrency", () => {
   it("formats a positive number as USD by default", () => {
@@ -16,6 +16,21 @@ describe("formatCurrency", () => {
 
   it("respects the currency code", () => {
     expect(formatCurrency(10, "EUR")).toBe("€10.00");
+  });
+});
+
+describe("formatCurrencyCompact", () => {
+  it("is never longer than one fraction digit", () => {
+    expect(formatCurrencyCompact(109.5)).toBe("$109.5");
+  });
+
+  it("keeps a leading minus sign and drops unneeded decimals", () => {
+    expect(formatCurrencyCompact(-213)).toBe("-$213");
+  });
+
+  it("abbreviates large amounts instead of overflowing", () => {
+    expect(formatCurrencyCompact(12847.5)).toBe("$12.8K");
+    expect(formatCurrencyCompact(-1543.5)).toBe("-$1.5K");
   });
 });
 
