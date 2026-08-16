@@ -8,6 +8,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { pickWelcomeBackMessage } from "@/lib/welcome-messages";
 import { completeWelcomeAction } from "@/app/(app)/welcome-actions";
+import { ProductTour } from "@/components/product-tour";
 
 const PARTICLE_COUNT = 18;
 
@@ -62,24 +63,27 @@ function Particles({ particles }: { particles: Particle[] }) {
 export function WelcomeExperience({
   isNewUser,
   userName,
+  ready,
 }: {
   isNewUser: boolean;
   userName?: string | null;
+  ready: boolean;
 }) {
   const [open, setOpen] = React.useState(isNewUser);
   const [launching, setLaunching] = React.useState(false);
   const [particles, setParticles] = React.useState<Particle[] | null>(null);
+  const [showTour, setShowTour] = React.useState(false);
   const hasGreeted = React.useRef(false);
   const firstName = userName?.split(" ")[0];
 
   React.useEffect(() => {
-    if (isNewUser || hasGreeted.current) return;
+    if (!ready || isNewUser || hasGreeted.current) return;
     hasGreeted.current = true;
     toast(firstName ? `Welcome back, ${firstName}!` : "Welcome back!", {
       description: pickWelcomeBackMessage(),
       duration: 5000,
     });
-  }, [isNewUser, firstName]);
+  }, [ready, isNewUser, firstName]);
 
   function handleStart() {
     if (launching) return;
@@ -91,13 +95,18 @@ export function WelcomeExperience({
     window.setTimeout(
       () => {
         setOpen(false);
+        setShowTour(true);
         void completeWelcomeAction();
       },
       reduceMotion ? 150 : 650
     );
   }
 
-  if (!open) return null;
+  if (showTour) {
+    return <ProductTour onFinish={() => setShowTour(false)} />;
+  }
+
+  if (!open || !ready) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
