@@ -34,7 +34,9 @@ What to do:
 - If goals are included, note whether they're on track and why, based on the data.
 - Write in direct, concrete prose for the trader themselves — a few short sections with plain headers, not a wall of text and not a bulleted data dump. Aim for something a trader would actually want to read, roughly 300-500 words.`;
 
-const MODEL = "gemini-2.5-flash";
+// "-latest" alias so this keeps working as Google rotates dated model
+// versions in and out of availability for new API accounts.
+const MODEL = "gemini-flash-latest";
 
 export type InsightsResult = { error: string } | { insight: string };
 
