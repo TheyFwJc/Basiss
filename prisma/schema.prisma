@@ -534,7 +534,12 @@ model Notification {
   type      NotificationType
   message   String
   read      Boolean          @default(false)
+  // Identifies the specific occurrence a notification is about (e.g. a date
+  // or week), so generation can upsert instead of creating duplicates every
+  // time it runs.
+  dedupeKey String
   createdAt DateTime         @default(now())
 
+  @@unique([userId, dedupeKey])
   @@index([userId])
 }

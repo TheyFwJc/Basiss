@@ -135,7 +135,7 @@ export function CalendarGrid({
         </div>
       </div>
 
-      <div className="grid grid-cols-8 gap-1.5">
+      <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-8">
         {WEEKDAY_LABELS.map((label) => (
           <div
             key={label}
@@ -144,7 +144,7 @@ export function CalendarGrid({
             {label}
           </div>
         ))}
-        <div className="px-1 pb-1 text-center text-xs font-medium text-muted-foreground">
+        <div className="hidden px-1 pb-1 text-center text-xs font-medium text-muted-foreground sm:block">
           Week
         </div>
 
@@ -206,8 +206,9 @@ export function CalendarGrid({
                   </button>
                 );
               })}
+              {/* Desktop: week total as a side column, same row as the 7 days. */}
               <div
-                className={`flex min-h-20 flex-col items-center justify-center rounded-md border border-dashed p-1.5 text-center sm:min-h-24 sm:p-2 ${
+                className={`hidden min-h-20 flex-col items-center justify-center rounded-md border border-dashed p-1.5 text-center sm:flex sm:min-h-24 sm:p-2 ${
                   weekTrades.length === 0
                     ? "border-border/60"
                     : weekNetPnl > 0
@@ -234,6 +235,31 @@ export function CalendarGrid({
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
               </div>
+
+              {/* Mobile: week total as a full-width bar under the week's days. */}
+              {weekTrades.length > 0 && (
+                <div
+                  className={`col-span-7 -mt-0.5 mb-1 flex items-center justify-center gap-1.5 rounded-md border border-dashed px-2 py-1 text-xs sm:hidden ${
+                    weekNetPnl > 0
+                      ? "border-profit/30"
+                      : weekNetPnl < 0
+                        ? "border-loss/30"
+                        : "border-border/60"
+                  }`}
+                >
+                  <span className="text-muted-foreground">Week:</span>
+                  <span
+                    className={`font-numeric font-semibold tabular-nums ${
+                      weekNetPnl > 0 ? "text-profit" : weekNetPnl < 0 ? "text-loss" : ""
+                    }`}
+                  >
+                    {formatCurrency(weekNetPnl)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    · {weekTrades.length} trade{weekTrades.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+              )}
             </div>
           );
         })}

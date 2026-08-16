@@ -8,10 +8,19 @@ import {
   Upload,
   NotebookPen,
   ArrowRight,
+  CalendarDays,
+  Flag,
+  ImagePlus,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand-mark";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
 import { LandingPreview } from "./landing-preview";
 
 const FEATURES = [
@@ -50,6 +59,74 @@ const FEATURES = [
     title: "Daily journal",
     description:
       "Plan before, review after — one page per trading day, tied to the trades you actually took.",
+  },
+  {
+    icon: CalendarDays,
+    title: "Calendar & weekly totals",
+    description:
+      "A month grid of daily P&L with weekly and monthly totals built in, so you can spot streaks and slumps at a glance.",
+  },
+  {
+    icon: Flag,
+    title: "Goals",
+    description:
+      "Set targets for P&L, win rate, average R, or rule adherence, tracked automatically per day, week, month, or year.",
+  },
+  {
+    icon: ImagePlus,
+    title: "Trade screenshots",
+    description:
+      "Attach chart screenshots to any trade so your setup, entry, and exit are right there next to the numbers.",
+  },
+];
+
+const HOW_IT_WORKS = [
+  {
+    title: "Log or import your trades",
+    description:
+      "Enter a trade in seconds, or upload a broker CSV export — columns map themselves and duplicates are caught automatically.",
+  },
+  {
+    title: "Everything's computed for you",
+    description:
+      "P&L, R-multiple, win rate, and every breakdown by symbol, session, and time of day are derived automatically — nothing hand-calculated.",
+  },
+  {
+    title: "Review and improve",
+    description:
+      "Spot patterns in Analytics, get a plain-language AI review of your own stats, and track goals over time.",
+  },
+];
+
+const FAQS = [
+  {
+    question: "Is Basis free to use?",
+    answer: "Yes — Basis is free to use, no credit card required.",
+  },
+  {
+    question: "Is my trading data private?",
+    answer:
+      "Yes. Your trades belong to you. AI-assisted reviews only ever see your own aggregated statistics — never your raw trade rows, and never market data.",
+  },
+  {
+    question: "Does Basis give me trading advice or predictions?",
+    answer:
+      "No. Basis analyzes your own historical performance — it never makes a market call, a prediction, or a guarantee about future results.",
+  },
+  {
+    question: "Can I import my trade history from my broker?",
+    answer:
+      "Yes — the CSV importer maps common broker export formats, flags likely duplicates before importing, and groups raw fills into trades for you.",
+  },
+  {
+    question: "Does it work with my asset class and broker?",
+    answer:
+      "Basis supports equities, options, futures, forex, and crypto, across as many trading accounts as you want to track.",
+  },
+  {
+    question: "What if I'm new to trading?",
+    answer:
+      "Basis works from your very first logged trade — the analytics and breakdowns build up automatically as your history grows.",
   },
 ];
 
@@ -131,6 +208,23 @@ export default async function Home() {
 
         <div className="mt-28 w-full">
           <h2 className="animate-fade-in-up text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            How it works
+          </h2>
+          <div className="mt-10 grid grid-cols-1 gap-8 sm:grid-cols-3">
+            {HOW_IT_WORKS.map((step, i) => (
+              <div key={step.title} className="animate-fade-in-up flex flex-col items-center text-center sm:items-start sm:text-left" style={{ animationDelay: `${i * 100}ms` }}>
+                <div className="mb-4 flex size-9 items-center justify-center rounded-full bg-brand-gradient font-numeric text-sm font-bold text-white">
+                  {i + 1}
+                </div>
+                <h3 className="font-medium">{step.title}</h3>
+                <p className="mt-1.5 text-sm text-muted-foreground">{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-28 w-full">
+          <h2 className="animate-fade-in-up text-center text-2xl font-bold tracking-tight sm:text-3xl">
             Everything a serious trading practice needs
           </h2>
           <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -150,6 +244,22 @@ export default async function Home() {
               </div>
             ))}
           </div>
+        </div>
+
+        <div className="mt-28 w-full max-w-2xl">
+          <h2 className="animate-fade-in-up text-center text-2xl font-bold tracking-tight sm:text-3xl">
+            Frequently asked questions
+          </h2>
+          <Accordion className="animate-fade-in-up mt-10 rounded-xl border border-border bg-card px-5 shadow-sm">
+            {FAQS.map((faq) => (
+              <AccordionItem key={faq.question} value={faq.question}>
+                <AccordionTrigger>{faq.question}</AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-muted-foreground">{faq.answer}</p>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </div>
 
         <div className="animate-fade-in-up relative mt-28 w-full overflow-hidden rounded-2xl border border-border bg-card p-10 text-center shadow-lg">
