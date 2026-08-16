@@ -15,6 +15,7 @@ import {
   ClipboardCheck,
   Flag,
   Sparkles,
+  HelpCircle,
 } from "lucide-react";
 
 export type NavItem = {
@@ -39,4 +40,5 @@ export const navItems: NavItem[] = [
   { label: "Accounts", href: "/accounts", icon: Wallet },
   { label: "Import", href: "/import", icon: Upload },
   { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Help", href: "/help", icon: HelpCircle },
 ];

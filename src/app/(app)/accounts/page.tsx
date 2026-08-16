@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDate } from "@/lib/format";
+import { computeCurrentBalance } from "@/lib/accounts";
 import { AccountFormDialog } from "./account-form-dialog";
 import { EditAccountItem } from "./edit-account-item";
 import { DeleteAccountButton } from "./delete-account-button";
@@ -47,10 +48,20 @@ export default async function AccountsPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const accounts = await db.tradingAccount.findMany({
-    where: { userId },
-    orderBy: { createdAt: "asc" },
-  });
+  const [accounts, realizedByAccount] = await Promise.all([
+    db.tradingAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+    }),
+    db.trade.groupBy({
+      by: ["tradingAccountId"],
+      where: { userId, netPnl: { not: null } },
+      _sum: { netPnl: true },
+    }),
+  ]);
+  const realizedPnlByAccount = new Map(
+    realizedByAccount.map((r) => [r.tradingAccountId, r._sum.netPnl])
+  );
 
   return (
     <div>
@@ -95,13 +106,20 @@ export default async function AccountsPage() {
                   <TableHead>Type</TableHead>
                   <TableHead>Broker</TableHead>
                   <TableHead className="text-right">Starting balance</TableHead>
+                  <TableHead className="text-right">Current balance</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {accounts.map((account) => (
+                {accounts.map((account) => {
+                  const currentBalance = computeCurrentBalance(
+                    account.startingBalance.toString(),
+                    realizedPnlByAccount.get(account.id)?.toString()
+                  );
+                  const delta = currentBalance.minus(account.startingBalance.toString());
+                  return (
                   <TableRow key={account.id}>
                     <TableCell className="font-medium">{account.name}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -112,6 +130,13 @@ export default async function AccountsPage() {
                     </TableCell>
                     <TableCell className="text-right font-numeric tabular-nums">
                       {formatCurrency(account.startingBalance.toString(), account.currency)}
+                    </TableCell>
+                    <TableCell
+                      className={`text-right font-numeric tabular-nums ${
+                        delta.gt(0) ? "text-profit" : delta.lt(0) ? "text-loss" : ""
+                      }`}
+                    >
+                      {formatCurrency(currentBalance.toString(), account.currency)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={STATUS_VARIANT[account.status]}>
@@ -152,7 +177,8 @@ export default async function AccountsPage() {
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>

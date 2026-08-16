@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate, formatSignedNumber } from "@/lib/format";
 import { AccountFormDialog } from "@/app/(app)/accounts/account-form-dialog";
+import { computeCurrentBalance } from "@/lib/accounts";
 import {
   computeWinLossStats,
   computeProfitStats,
@@ -44,6 +45,22 @@ export default async function DashboardPage() {
 
   const totalStartingBalance = accounts.reduce(
     (sum, a) => sum + Number(a.startingBalance),
+    0
+  );
+
+  const realizedPnlByAccount = new Map<string, number>();
+  for (const t of trades) {
+    if (!t.netPnl) continue;
+    realizedPnlByAccount.set(
+      t.tradingAccountId,
+      (realizedPnlByAccount.get(t.tradingAccountId) ?? 0) + Number(t.netPnl)
+    );
+  }
+  const currentBalances = accounts.map((a) =>
+    computeCurrentBalance(a.startingBalance.toString(), realizedPnlByAccount.get(a.id))
+  );
+  const totalCurrentBalance = currentBalances.reduce(
+    (sum, b) => sum + b.toNumber(),
     0
   );
 
@@ -151,33 +168,60 @@ export default async function DashboardPage() {
               />
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {accounts.map((account) => (
-                <div
-                  key={account.id}
-                  className="flex items-center justify-between rounded-md border border-border px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium">{account.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {account.broker || "No broker set"}
-                    </p>
+              {accounts.map((account) => {
+                const currentBalance = computeCurrentBalance(
+                  account.startingBalance.toString(),
+                  realizedPnlByAccount.get(account.id)
+                );
+                const delta = currentBalance.minus(account.startingBalance.toString());
+                return (
+                  <div
+                    key={account.id}
+                    className="flex items-center justify-between rounded-md border border-border px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{account.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {account.broker || "No broker set"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span
+                          className={`font-numeric text-sm tabular-nums ${
+                            delta.gt(0)
+                              ? "text-profit"
+                              : delta.lt(0)
+                                ? "text-loss"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {formatCurrency(currentBalance.toString(), account.currency)}
+                        </span>
+                        {!delta.isZero() && (
+                          <p className="text-[10px] text-muted-foreground">
+                            {delta.gt(0) ? "+" : ""}
+                            {formatCurrency(delta.toString(), account.currency)} from start
+                          </p>
+                        )}
+                      </div>
+                      <Badge variant={account.status === "ACTIVE" ? "default" : "secondary"}>
+                        {account.status.charAt(0) + account.status.slice(1).toLowerCase()}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-numeric text-sm tabular-nums text-muted-foreground">
-                      {formatCurrency(account.startingBalance.toString(), account.currency)}
-                    </span>
-                    <Badge variant={account.status === "ACTIVE" ? "default" : "secondary"}>
-                      {account.status.charAt(0) + account.status.slice(1).toLowerCase()}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               <p className="pt-1 text-xs text-muted-foreground">
-                Combined starting balance:{" "}
+                Combined current balance:{" "}
+                <span className="font-numeric tabular-nums">
+                  {formatCurrency(totalCurrentBalance)}
+                </span>{" "}
+                (started at{" "}
                 <span className="font-numeric tabular-nums">
                   {formatCurrency(totalStartingBalance)}
-                </span>{" "}
-                across {accounts.length} account{accounts.length === 1 ? "" : "s"}.
+                </span>
+                ) across {accounts.length} account{accounts.length === 1 ? "" : "s"}.
                 {accounts.length > 1 && (
                   <>
                     {" "}
