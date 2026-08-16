@@ -17,6 +17,7 @@ import {
 import { formatDateTime } from "@/lib/format";
 import type { AssetClass } from "@/lib/import";
 import { createTradingViewWebhookAction, deleteTradingViewWebhookAction } from "./tradingview-actions";
+import { TradingViewWalkthrough } from "./tradingview-walkthrough";
 
 const ASSET_CLASS_OPTIONS: { value: AssetClass; label: string }[] = [
   { value: "EQUITY", label: "Equity" },
@@ -146,6 +147,9 @@ export function TradingViewWebhooks({
           into the alert&apos;s Webhook URL field, and paste this into the Message field:
         </li>
       </ol>
+
+      <TradingViewWalkthrough />
+
       <div className="relative">
         <pre className="overflow-x-auto rounded-md bg-muted p-3 pr-10 text-xs">{ALERT_TEMPLATE}</pre>
         <Button
