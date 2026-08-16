@@ -17,7 +17,7 @@ export default async function InsightsPage() {
     <div>
       <PageHeader
         title="Insights"
-        description="Ask Claude to review your own trading data — patterns, tendencies, and what's costing you. Never a market call, never a guarantee."
+        description="Ask AI to review your own trading data — patterns, tendencies, and what's costing you. Never a market call, never a guarantee."
       />
 
       {closedTradeCount < MIN_TRADES_FOR_INSIGHTS ? (

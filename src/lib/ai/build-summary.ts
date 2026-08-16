@@ -26,7 +26,7 @@ import { computeGoalProgress, type GoalMetric, type GoalPeriod } from "@/lib/goa
  * Builds the compact, aggregated JSON payload sent to the LLM for AI-assisted
  * analysis — deliberately statistics-only (win rates, breakdowns, costs),
  * never raw trade-by-trade rows. Reuses the same engines the Analytics/Goals
- * pages already compute from, so the numbers Claude sees always match what
+ * pages already compute from, so the numbers the AI sees always match what
  * the user sees on screen.
  */
 

@@ -1,17 +1,20 @@
 "use server";
 
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI, ApiError } from "@google/genai";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buildTradingSummary } from "@/lib/ai/build-summary";
 import type { AnalyticsTrade } from "@/lib/analytics";
 
 /**
- * AI-assisted analysis (Phase 8): Claude reviews the user's own aggregated
+ * AI-assisted analysis (Phase 8): Gemini reviews the user's own aggregated
  * trading statistics — never raw trade rows, never market data — and writes
  * a plain-language performance review. The system prompt is the only thing
  * standing between "here's what your own data shows" and "here's what AAPL
  * will do next week"; it earns the verbosity below.
+ *
+ * Uses Google's Gemini API (free tier, no billing required) rather than a
+ * paid provider — see ARCHITECTURE.md for why.
  */
 const SYSTEM_PROMPT = `You are a trading performance analyst inside Basis, a trading journal app. You are given one JSON object: aggregated statistics computed from a trader's own historical, closed trades in this app. You are never given raw trade rows, account numbers, personal information, or any live market data.
 
@@ -31,6 +34,8 @@ What to do:
 - If goals are included, note whether they're on track and why, based on the data.
 - Write in direct, concrete prose for the trader themselves — a few short sections with plain headers, not a wall of text and not a bulleted data dump. Aim for something a trader would actually want to read, roughly 300-500 words.`;
 
+const MODEL = "gemini-2.5-flash";
+
 export type InsightsResult = { error: string } | { insight: string };
 
 async function requireUserId() {
@@ -44,10 +49,10 @@ const MIN_TRADES_FOR_INSIGHTS = 10;
 export async function generateInsightsAction(): Promise<InsightsResult> {
   const userId = await requireUserId();
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return {
       error:
-        "AI insights aren't configured yet — add ANTHROPIC_API_KEY to the server's environment to enable this feature.",
+        "AI insights aren't configured yet — add GEMINI_API_KEY to the server's environment to enable this feature.",
     };
   }
 
@@ -96,45 +101,31 @@ export async function generateInsightsAction(): Promise<InsightsResult> {
 
   const summary = buildTradingSummary(analyticsTrades, goalRows, totalStartingBalance, new Date());
 
-  const client = new Anthropic();
+  const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   try {
-    const stream = client.messages.stream({
-      model: "claude-opus-5",
-      max_tokens: 4096,
-      thinking: { type: "adaptive" },
-      system: SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: `Here is my aggregated trading performance data as JSON. Write me a performance review based only on this.\n\n${JSON.stringify(summary, null, 2)}`,
-        },
-      ],
+    const response = await client.models.generateContent({
+      model: MODEL,
+      contents: `Here is my aggregated trading performance data as JSON. Write me a performance review based only on this.\n\n${JSON.stringify(summary, null, 2)}`,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+        maxOutputTokens: 4096,
+      },
     });
-    const response = await stream.finalMessage();
 
-    if (response.stop_reason === "refusal") {
-      return {
-        error: "The analysis couldn't be generated for this data. Please try again.",
-      };
-    }
-
-    const textBlock = response.content.find(
-      (block): block is Anthropic.TextBlock => block.type === "text"
-    );
-    if (!textBlock?.text) {
+    if (!response.text) {
       return { error: "No analysis was returned. Please try again." };
     }
 
-    return { insight: textBlock.text };
+    return { insight: response.text };
   } catch (error) {
-    if (error instanceof Anthropic.AuthenticationError) {
-      return { error: "The configured ANTHROPIC_API_KEY was rejected. Check the server's environment." };
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      return { error: "Rate limited by the AI provider — try again in a moment." };
-    }
-    if (error instanceof Anthropic.APIError) {
+    if (error instanceof ApiError) {
+      if (error.status === 401 || error.status === 403) {
+        return { error: "The configured GEMINI_API_KEY was rejected. Check the server's environment." };
+      }
+      if (error.status === 429) {
+        return { error: "Rate limited by the AI provider — try again in a moment." };
+      }
       return { error: `AI request failed: ${error.message}` };
     }
     return { error: "Something went wrong generating insights. Please try again." };

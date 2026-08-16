@@ -258,9 +258,13 @@ does, in the same "one place per formula, tested" style as pnl.ts/metrics.ts:
 
 ## AI-assisted analysis (Phase 8)
 
-`/insights` sends Claude a written performance review request, built entirely
-from the user's own already-computed statistics — never raw trade rows,
-never market data. Two pieces:
+`/insights` sends an AI model a written performance review request, built
+entirely from the user's own already-computed statistics — never raw trade
+rows, never market data. Uses Google's Gemini API (`gemini-2.5-flash`, via
+the `@google/genai` SDK) rather than a paid provider, specifically because
+it has a genuine free tier — deliberate, since this is a small-scale feature
+that shouldn't require the app owner to pay per user just to let people try
+it. Revisit if usage outgrows Gemini's free-tier rate limits. Two pieces:
 
 - **`src/lib/ai/build-summary.ts`** (`buildTradingSummary`) assembles a
   compact JSON payload by calling the *existing* `metrics.ts`/`analytics.ts`/
@@ -272,12 +276,10 @@ never market data. Two pieces:
   tested, no DB or network access.
 - **`src/app/(app)/insights/actions.ts`** (`generateInsightsAction`) fetches
   the user's closed trades/goals/accounts, builds the summary, and calls
-  `claude-opus-5` (adaptive thinking, streamed server-side via
-  `messages.stream().finalMessage()` to avoid timeout risk on longer
-  responses) with a system prompt that hard-bans market predictions,
+  Gemini with a system prompt that hard-bans market predictions,
   trading/financial advice, and guaranteed-outcome language, and requires
   every claim to trace back to a number in the JSON payload. Requires
-  `ANTHROPIC_API_KEY` in the environment — without it, the action returns a
+  `GEMINI_API_KEY` in the environment — without it, the action returns a
   plain "not configured" message rather than failing; below
   `MIN_TRADES_FOR_INSIGHTS` (10) closed trades it declines with a
   not-enough-data message instead of calling the API at all.

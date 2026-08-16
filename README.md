@@ -44,11 +44,11 @@ feature set, only the general category of functionality was used as a reference.
   memory, duplicate detection (skip/import-anyway), and automatic FIFO
   trade grouping from raw broker fills — plus CSV/JSON trade export
   (`/api/export/trades`)
-- Insights: `/insights` asks Claude to review your own aggregated trading
-  statistics and write a plain-language performance review — patterns,
-  tendencies, what's costing you — grounded only in your data, never a
-  market call or a guarantee. Requires an `ANTHROPIC_API_KEY` (see below);
-  the rest of the app works fully without one.
+- Insights: `/insights` asks AI (Google Gemini, free tier) to review your
+  own aggregated trading statistics and write a plain-language performance
+  review — patterns, tendencies, what's costing you — grounded only in your
+  data, never a market call or a guarantee. Requires a `GEMINI_API_KEY` (see
+  below); the rest of the app works fully without one.
 - Settings (profile, timezone, base currency)
 - A demo data seed script (`npm run db:seed`) creates a `demo@basisapp.dev`
   account with realistic sample trades, kept fully separate from real user
@@ -90,8 +90,8 @@ and fill in:
   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
   ```
 - `AUTH_URL` — the base URL of the app (`http://localhost:3000` in development).
-- `ANTHROPIC_API_KEY` — optional. Powers the AI-assisted analysis on
-  `/insights` (get one at [console.anthropic.com](https://console.anthropic.com/settings/keys)).
+- `GEMINI_API_KEY` — optional. Powers the AI-assisted analysis on
+  `/insights` (free tier, get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
   Everything else in the app works without it.
 
 ### 3. Set up the database

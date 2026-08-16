@@ -187,10 +187,10 @@ const SECTIONS: Section[] = [
     icon: Sparkles,
     body: (
       <p>
-        <Link href="/insights" className="underline">Insights</Link> asks Claude to
+        <Link href="/insights" className="underline">Insights</Link> asks AI to
         write a plain-language performance review from your own aggregated stats —
         never a market call or a guarantee, and never raw trade rows or market data.
-        Requires an <code>ANTHROPIC_API_KEY</code> on the server and at least 10
+        Requires a <code>GEMINI_API_KEY</code> on the server and at least 10
         closed trades.
       </p>
     ),
