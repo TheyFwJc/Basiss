@@ -100,6 +100,23 @@ describe("guessColumnMapping", () => {
     });
   });
 
+  it("recognizes common TradingView paper-trading export column names", () => {
+    const mapping = guessColumnMapping([
+      "Symbol",
+      "Side",
+      "Contracts",
+      "Fill Price",
+      "Closing Time",
+    ]);
+    expect(mapping).toMatchObject({
+      symbol: "Symbol",
+      side: "Side",
+      quantity: "Contracts",
+      price: "Fill Price",
+      executedAt: "Closing Time",
+    });
+  });
+
   it("leaves a field blank when no header matches", () => {
     const mapping = guessColumnMapping(["Symbol", "Qty"]);
     expect(mapping.side).toBe("");

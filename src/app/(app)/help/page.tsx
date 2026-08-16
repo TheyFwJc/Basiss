@@ -166,6 +166,12 @@ const SECTIONS: Section[] = [
         <p>
           Export everything back out anytime as CSV or JSON from the Trades page.
         </p>
+        <p>
+          Trading on TradingView paper trading? Export your trade history to CSV
+          (from the Trade History table&apos;s menu) and import it the same way —
+          just type <code>TradingView</code> as the broker so the mapping gets
+          saved and reused next time.
+        </p>
       </>
     ),
   },

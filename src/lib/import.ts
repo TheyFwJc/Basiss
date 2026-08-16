@@ -161,7 +161,17 @@ export function applyMapping(
 const FIELD_ALIASES: Record<keyof ColumnMapping, string[]> = {
   symbol: ["symbol", "ticker", "instrument"],
   side: ["side", "action", "buysell", "direction"],
-  quantity: ["quantity", "qty", "shares", "units", "size", "filledqty", "filledquantity"],
+  quantity: [
+    "quantity",
+    "qty",
+    "shares",
+    "units",
+    "size",
+    "filledqty",
+    "filledquantity",
+    // TradingView paper trading / strategy tester exports.
+    "contracts",
+  ],
   price: ["price", "fillprice", "executionprice", "avgprice", "tradeprice", "avgfillprice"],
   executedAt: [
     "time",
@@ -173,6 +183,11 @@ const FIELD_ALIASES: Record<keyof ColumnMapping, string[]> = {
     "timestamp",
     "filltime",
     "orderexecutedtime",
+    // TradingView paper trading / strategy tester exports.
+    "ordertime",
+    "placingtime",
+    "closingtime",
+    "closetime",
   ],
   fees: ["fees", "fee", "exchangefee", "regfee"],
   commission: ["commission", "comm", "commissions"],

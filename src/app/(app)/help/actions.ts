@@ -45,7 +45,9 @@ Basis is a trading journal for tracking performance, risk, and psychology.
 - Subscriptions: Free (capped trades/month), Pro, and Pro+ plans via Stripe,
   managed from /billing; /pricing shows plan comparisons.
 - Import/export: CSV import at /import; export everything back out as
-  CSV/JSON from the Trades page.
+  CSV/JSON from the Trades page. TradingView paper-trading trade history can
+  be exported to CSV and imported the same way — type "TradingView" as the
+  broker name so the column mapping is remembered for next time.
 `.trim();
 
 const SYSTEM_PROMPT = `You are the in-app help assistant for Basis, a trading journal web app. Below is the ONLY information you know about the app — answer questions about how to use Basis using it:
