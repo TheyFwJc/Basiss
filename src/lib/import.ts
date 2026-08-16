@@ -432,3 +432,44 @@ export function groupExecutionsIntoTrades(rows: ImportedExecutionRow[]): TradeGr
 
   return groups.sort((a, b) => a.entryAt.getTime() - b.entryAt.getTime());
 }
+
+/** The Prisma `Trade.create` input derived from a `TradeGroup` — shared by
+ * the CSV importer and the TradingView webhook, both of which turn a batch
+ * of executions into Trade rows the same way. */
+export function tradeCreateDataFromGroup(
+  group: TradeGroup,
+  userId: string,
+  tradingAccountId: string
+) {
+  return {
+    userId,
+    tradingAccountId,
+    symbol: group.symbol,
+    assetClass: group.assetClass,
+    direction: group.direction,
+    status: group.pnl.status,
+    quantity: group.pnl.quantity.toString(),
+    avgEntryPrice: group.pnl.avgEntryPrice.toString(),
+    avgExitPrice: group.pnl.avgExitPrice?.toString() ?? null,
+    entryAt: group.entryAt,
+    exitAt: group.exitAt,
+    fees: group.pnl.fees.toString(),
+    commission: group.pnl.commission.toString(),
+    grossPnl: group.pnl.grossPnl?.toString() ?? null,
+    netPnl: group.pnl.netPnl?.toString() ?? null,
+    // Neither import path carries a stop loss, so there's nothing to size risk against yet.
+    riskAmount: null,
+    riskPercent: null,
+    rMultiple: null,
+    executions: {
+      create: group.executions.map((e) => ({
+        side: e.side,
+        quantity: e.quantity.toString(),
+        price: e.price.toString(),
+        executedAt: e.executedAt,
+        fees: e.fees.toString(),
+        commission: e.commission.toString(),
+      })),
+    },
+  };
+}

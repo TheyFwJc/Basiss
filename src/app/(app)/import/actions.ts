@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { parseCsv } from "@/lib/import-parse";
 import {
   groupExecutionsIntoTrades,
+  tradeCreateDataFromGroup,
   type ImportedExecutionRow,
   type TradeGroup,
 } from "@/lib/import";
@@ -120,44 +121,6 @@ export async function fetchExistingExecutionKeysAction(
   }));
 }
 
-function buildTradeCreateData(
-  group: TradeGroup,
-  userId: string,
-  tradingAccountId: string
-) {
-  return {
-    userId,
-    tradingAccountId,
-    symbol: group.symbol,
-    assetClass: group.assetClass,
-    direction: group.direction,
-    status: group.pnl.status,
-    quantity: group.pnl.quantity.toString(),
-    avgEntryPrice: group.pnl.avgEntryPrice.toString(),
-    avgExitPrice: group.pnl.avgExitPrice?.toString() ?? null,
-    entryAt: group.entryAt,
-    exitAt: group.exitAt,
-    fees: group.pnl.fees.toString(),
-    commission: group.pnl.commission.toString(),
-    grossPnl: group.pnl.grossPnl?.toString() ?? null,
-    netPnl: group.pnl.netPnl?.toString() ?? null,
-    // Imports don't carry a stop loss, so there's nothing to size risk against yet.
-    riskAmount: null,
-    riskPercent: null,
-    rMultiple: null,
-    executions: {
-      create: group.executions.map((e) => ({
-        side: e.side,
-        quantity: e.quantity.toString(),
-        price: e.price.toString(),
-        executedAt: e.executedAt,
-        fees: e.fees.toString(),
-        commission: e.commission.toString(),
-      })),
-    },
-  };
-}
-
 export type CommitImportResult =
   | { error: string }
   | { tradesCreated: number; executionsCreated: number };
@@ -224,7 +187,7 @@ export async function commitImportAction(input: unknown): Promise<CommitImportRe
   try {
     await db.$transaction([
       ...groups.map((group) =>
-        db.trade.create({ data: buildTradeCreateData(group, userId, tradingAccountId) })
+        db.trade.create({ data: tradeCreateDataFromGroup(group, userId, tradingAccountId) })
       ),
       db.importMapping.upsert({
         where: { userId_broker: { userId, broker } },

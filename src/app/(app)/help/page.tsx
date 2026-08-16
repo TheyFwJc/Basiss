@@ -172,6 +172,15 @@ const SECTIONS: Section[] = [
           just type <code>TradingView</code> as the broker so the mapping gets
           saved and reused next time.
         </p>
+        <p>
+          Want it automatic instead? <Link href="/settings" className="underline">
+          Settings</Link> → TradingView auto-import creates a private webhook URL
+          for a Strategy alert to post to — paste the given JSON template into the
+          alert&apos;s message field, and entries/exits log themselves as the
+          strategy fires (works with paper trading). The alert has to come from a
+          Strategy, not a plain indicator, since only strategies resolve
+          <code>{"{{strategy.order.action}}"}</code>.
+        </p>
       </>
     ),
   },

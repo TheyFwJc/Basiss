@@ -1,8 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
 
 // Stripe's webhook has no user session — it authenticates via signature
-// verification instead (see src/app/api/stripe/webhook/route.ts).
-const PUBLIC_PATHS = ["/login", "/signup", "/reset-password", "/api/stripe/webhook"];
+// verification instead (see src/app/api/stripe/webhook/route.ts). The
+// TradingView webhook likewise has no session — it's the URL's token that
+// authenticates it instead (see src/app/api/tradingview/webhook/[token]/route.ts).
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/reset-password",
+  "/api/stripe/webhook",
+  "/api/tradingview/webhook",
+];
 
 export const authConfig = {
   pages: {

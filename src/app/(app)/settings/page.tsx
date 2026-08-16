@@ -15,17 +15,28 @@ import { getSubscription } from "@/lib/subscription";
 import { PLANS } from "@/lib/plans";
 import { ProfileForm } from "./profile-form";
 import { PreferencesForm } from "./preferences-form";
+import { TradingViewWebhooks } from "./tradingview-webhooks";
 
 export default async function SettingsPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [user, subscription] = await Promise.all([
+  const [user, subscription, accounts, webhooks] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       include: { settings: true },
     }),
     getSubscription(userId),
+    db.tradingAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true },
+    }),
+    db.tradingViewWebhook.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: { tradingAccount: { select: { name: true } } },
+    }),
   ]);
 
   const planDef = PLANS[subscription.effectivePlan];
@@ -80,6 +91,28 @@ export default async function SettingsPage() {
             nativeButton={false}
             variant="outline"
             size="sm"
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">TradingView auto-import</CardTitle>
+          <CardDescription>
+            Log entries/exits from a TradingView Strategy alert automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TradingViewWebhooks
+            accounts={accounts}
+            webhooks={webhooks.map((w) => ({
+              id: w.id,
+              label: w.label,
+              tradingAccountName: w.tradingAccount.name,
+              defaultAssetClass: w.defaultAssetClass,
+              createdAt: w.createdAt.toISOString(),
+              lastTriggeredAt: w.lastTriggeredAt?.toISOString() ?? null,
+            }))}
           />
         </CardContent>
       </Card>

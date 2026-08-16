@@ -76,6 +76,7 @@ model User {
   importMappings      ImportMapping[]
   notifications       Notification[]
   passwordResetTokens PasswordResetToken[]
+  tradingViewWebhooks TradingViewWebhook[]
 }
 
 /** Records processed Stripe webhook event IDs so a redelivered/duplicate
@@ -148,9 +149,30 @@ model TradingAccount {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
-  trades          Trade[]
-  equitySnapshots EquitySnapshot[]
-  importJobs      ImportJob[]
+  trades              Trade[]
+  equitySnapshots     EquitySnapshot[]
+  importJobs          ImportJob[]
+  tradingViewWebhooks TradingViewWebhook[]
+
+  @@index([userId])
+}
+
+/** A per-account incoming webhook for TradingView alerts (Pine Script
+ * strategy alerts posting a JSON message). There is no way to verify these
+ * requests came from TradingView specifically — the URL's token IS the only
+ * secret, exactly like Slack/Zapier incoming webhooks — so the raw token is
+ * shown to the user only once at creation and stored here only as a hash. */
+model TradingViewWebhook {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccountId String
+  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  label            String
+  tokenHash        String         @unique
+  defaultAssetClass AssetClass    @default(EQUITY)
+  createdAt        DateTime       @default(now())
+  lastTriggeredAt  DateTime?
 
   @@index([userId])
 }

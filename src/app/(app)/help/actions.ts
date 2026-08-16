@@ -48,6 +48,15 @@ Basis is a trading journal for tracking performance, risk, and psychology.
   CSV/JSON from the Trades page. TradingView paper-trading trade history can
   be exported to CSV and imported the same way — type "TradingView" as the
   broker name so the column mapping is remembered for next time.
+- TradingView auto-import: on the Settings page, "TradingView auto-import"
+  creates a private webhook URL. Pasted into a TradingView Strategy alert's
+  webhook field (with the given JSON message template using placeholders
+  like {{ticker}}, {{strategy.order.action}}, {{strategy.order.contracts}},
+  {{close}}, {{timenow}}), each alert automatically logs an entry/exit fill
+  as a trade here — no manual entry needed. Only works with alerts created
+  from a Strategy (not a plain indicator), since only strategies resolve
+  the strategy.order.* placeholders. The webhook URL is shown only once at
+  creation time, so it must be copied immediately.
 `.trim();
 
 const SYSTEM_PROMPT = `You are the in-app help assistant for Basis, a trading journal web app. Below is the ONLY information you know about the app — answer questions about how to use Basis using it:
