@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, Trash2, Webhook } from "lucide-react";
+import { Copy, Trash2, Webhook, FlaskConical, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,40 @@ async function copyToClipboard(text: string, message: string) {
   toast.success(message);
 }
 
+/** Fires a sample buy+sell straight at a just-created webhook URL from the
+ * browser — lets someone confirm the connection works and see a real trade
+ * appear before they've touched TradingView at all. */
+async function sendTestTrade(url: string): Promise<boolean> {
+  const now = Date.now();
+  // Sequential, not concurrent — the exit fill needs the entry's write to
+  // have already landed so it merges into the same trade instead of racing
+  // it and creating two.
+  const entryRes = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      symbol: "TEST",
+      side: "buy",
+      quantity: "1",
+      price: "100.00",
+      time: String(Math.floor((now - 60_000) / 1000)),
+    }),
+  });
+  if (!entryRes.ok) return false;
+  const exitRes = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      symbol: "TEST",
+      side: "sell",
+      quantity: "1",
+      price: "101.00",
+      time: String(Math.floor(now / 1000)),
+    }),
+  });
+  return exitRes.ok;
+}
+
 export function TradingViewWebhooks({
   accounts,
   webhooks,
@@ -62,6 +97,16 @@ export function TradingViewWebhooks({
   const [tradingAccountId, setTradingAccountId] = useState(accounts[0]?.id ?? "");
   const [label, setLabel] = useState("");
   const [assetClass, setAssetClass] = useState<AssetClass>("EQUITY");
+  const [testState, setTestState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+
+  function handleSendTest() {
+    if (!newUrl) return;
+    setTestState("sending");
+    sendTestTrade(newUrl).then((ok) => {
+      setTestState(ok ? "sent" : "failed");
+      if (!ok) toast.error("Couldn't reach the webhook — try again in a moment.");
+    });
+  }
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +119,7 @@ export function TradingViewWebhooks({
       }
       setNewUrl(result.url);
       setLabel("");
+      setTestState("idle");
     });
   }
 
@@ -85,11 +131,38 @@ export function TradingViewWebhooks({
 
   return (
     <div className="flex flex-col gap-4">
+      <ol className="flex flex-col gap-2 text-sm text-muted-foreground">
+        <li>
+          <span className="font-medium text-foreground">1. Create a webhook below</span> — give
+          it a label, account, and asset class.
+        </li>
+        <li>
+          <span className="font-medium text-foreground">2. In TradingView</span>, add your{" "}
+          <strong>Strategy</strong> to the chart (not a plain indicator) and create an alert on
+          it set to trigger on <strong>Order fills</strong>.
+        </li>
+        <li>
+          <span className="font-medium text-foreground">3. Paste the webhook URL</span> below
+          into the alert&apos;s Webhook URL field, and paste this into the Message field:
+        </li>
+      </ol>
+      <div className="relative">
+        <pre className="overflow-x-auto rounded-md bg-muted p-3 pr-10 text-xs">{ALERT_TEMPLATE}</pre>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          className="absolute top-1.5 right-1.5"
+          onClick={() => copyToClipboard(ALERT_TEMPLATE, "Template copied")}
+          aria-label="Copy alert message template"
+        >
+          <Copy className="size-3.5" />
+        </Button>
+      </div>
       <p className="text-sm text-muted-foreground">
-        Give a TradingView Strategy alert a webhook URL below and it logs entries/exits here
-        automatically, as they fire. Use this alert message template:
+        <span className="font-medium text-foreground">4. Save the alert</span> — entries and
+        exits log themselves here automatically as it fires.
       </p>
-      <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{ALERT_TEMPLATE}</pre>
 
       {webhooks.length > 0 && (
         <div className="flex flex-col gap-2">
@@ -145,6 +218,35 @@ export function TradingViewWebhooks({
             >
               <Copy className="size-4" />
             </Button>
+          </div>
+          <div className="flex items-center gap-2 border-t border-primary/20 pt-2">
+            {testState === "sent" ? (
+              <p className="flex items-center gap-1.5 text-xs text-profit">
+                <CheckCircle2 className="size-3.5" />
+                Test trade logged — check{" "}
+                <Link href="/trades" className="underline">
+                  Trades
+                </Link>
+                .
+              </p>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSendTest}
+                  disabled={testState === "sending"}
+                >
+                  <FlaskConical className="size-3.5" />
+                  {testState === "sending" ? "Sending…" : "Send test trade"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Fires a sample trade at this webhook right now — no TradingView needed, just
+                  to confirm the connection works.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}
