@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CreditCard, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
 
-export function SidebarNav() {
+export function SidebarNav({ isPaidPlan }: { isPaidPlan: boolean }) {
   const pathname = usePathname();
+
+  const billingItem = isPaidPlan
+    ? { label: "Billing", href: "/billing", icon: CreditCard }
+    : { label: "Upgrade", href: "/pricing", icon: Zap };
 
   return (
     <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2">
@@ -36,6 +41,30 @@ export function SidebarNav() {
           </Link>
         );
       })}
+
+      <div className="mt-1 border-t border-sidebar-border pt-1">
+        {(() => {
+          const isActive =
+            pathname === billingItem.href || pathname.startsWith(`${billingItem.href}/`);
+          const Icon = billingItem.icon;
+          return (
+            <Link
+              href={billingItem.href}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200",
+                !isPaidPlan
+                  ? "bg-brand-gradient text-white shadow-sm hover:opacity-90"
+                  : isActive
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+              )}
+            >
+              <Icon className="size-4 shrink-0" strokeWidth={2} />
+              {billingItem.label}
+            </Link>
+          );
+        })()}
+      </div>
     </nav>
   );
 }

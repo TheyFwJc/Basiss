@@ -14,6 +14,27 @@ datasource db {
 // Identity
 // ---------------------------------------------------------------------------
 
+enum SubscriptionPlan {
+  FREE
+  PRO
+  PRO_PLUS
+}
+
+enum SubscriptionStatus {
+  FREE
+  ACTIVE
+  TRIALING
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  UNPAID
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String?
@@ -21,6 +42,19 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  // Billing — Stripe is the source of truth; these fields are a cache kept
+  // in sync by the webhook handler (src/app/api/stripe/webhook/route.ts).
+  // Never trust client-supplied plan/status — always read these columns.
+  stripeCustomerId       String?             @unique
+  stripeSubscriptionId   String?             @unique
+  subscriptionPlan       SubscriptionPlan    @default(FREE)
+  subscriptionStatus     SubscriptionStatus  @default(FREE)
+  billingInterval        BillingInterval?
+  currentPeriodEnd       DateTime?
+  cancelAtPeriodEnd      Boolean             @default(false)
+  subscriptionStartedAt  DateTime?
+  subscriptionCanceledAt DateTime?
 
   settings            UserSettings?
   tradingAccounts     TradingAccount[]
@@ -37,6 +71,15 @@ model User {
   importMappings      ImportMapping[]
   notifications       Notification[]
   passwordResetTokens PasswordResetToken[]
+}
+
+/** Records processed Stripe webhook event IDs so a redelivered/duplicate
+ * event is a no-op instead of double-applying (e.g. double-extending a
+ * billing period). The primary key IS the Stripe event ID. */
+model StripeWebhookEvent {
+  id        String   @id
+  type      String
+  createdAt DateTime @default(now())
 }
 
 model UserSettings {

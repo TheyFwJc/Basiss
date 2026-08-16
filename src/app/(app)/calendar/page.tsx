@@ -8,6 +8,7 @@ import {
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
+import { canUseFeature } from "@/lib/subscription";
 import { CalendarGrid, type CalendarTrade } from "./calendar-grid";
 
 export default async function CalendarPage({
@@ -30,14 +31,17 @@ export default async function CalendarPage({
   const gridEnd = endOfWeek(monthEnd);
   const gridDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
-  const trades = await db.trade.findMany({
-    where: {
-      userId,
-      exitAt: { gte: gridStart, lte: gridEnd },
-    },
-    orderBy: { exitAt: "asc" },
-    include: { tradingAccount: true },
-  });
+  const [trades, hasWeeklyMonthly] = await Promise.all([
+    db.trade.findMany({
+      where: {
+        userId,
+        exitAt: { gte: gridStart, lte: gridEnd },
+      },
+      orderBy: { exitAt: "asc" },
+      include: { tradingAccount: true },
+    }),
+    canUseFeature(userId, "CALENDAR_WEEKLY_MONTHLY"),
+  ]);
 
   const calendarTrades: CalendarTrade[] = trades.map((t) => ({
     id: t.id,
@@ -61,6 +65,7 @@ export default async function CalendarPage({
         monthStart={monthStart.toISOString()}
         monthEnd={monthEnd.toISOString()}
         trades={calendarTrades}
+        showWeeklyMonthlyTotals={hasWeeklyMonthly}
       />
     </div>
   );

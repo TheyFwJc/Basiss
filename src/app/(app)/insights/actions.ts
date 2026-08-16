@@ -4,6 +4,7 @@ import { GoogleGenAI, ApiError } from "@google/genai";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buildTradingSummary } from "@/lib/ai/build-summary";
+import { canUseFeature } from "@/lib/subscription";
 import type { AnalyticsTrade } from "@/lib/analytics";
 
 /**
@@ -50,6 +51,10 @@ const MIN_TRADES_FOR_INSIGHTS = 10;
 
 export async function generateInsightsAction(): Promise<InsightsResult> {
   const userId = await requireUserId();
+
+  if (!(await canUseFeature(userId, "AI_INSIGHTS"))) {
+    return { error: "AI Insights is a Pro+ feature. Upgrade to Pro+ to unlock it." };
+  }
 
   if (!process.env.GEMINI_API_KEY) {
     return {

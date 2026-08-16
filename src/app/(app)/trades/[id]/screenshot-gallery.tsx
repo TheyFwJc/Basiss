@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import Image from "next/image";
-import { ImagePlus, Trash2 } from "lucide-react";
+import { ImagePlus, Lock, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -27,9 +28,11 @@ export type TradeScreenshot = { id: string; url: string };
 export function ScreenshotGallery({
   tradeId,
   screenshots,
+  canUpload,
 }: {
   tradeId: string;
   screenshots: TradeScreenshot[];
+  canUpload: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -114,18 +117,28 @@ export function ScreenshotGallery({
           </div>
         ))}
 
-        <label className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-muted/50">
-          <ImagePlus className="size-5" />
-          <span className="text-[10px]">{pending ? "Uploading…" : "Add"}</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            disabled={pending}
-            onChange={handleFileChange}
-          />
-        </label>
+        {canUpload ? (
+          <label className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-muted/50">
+            <ImagePlus className="size-5" />
+            <span className="text-[10px]">{pending ? "Uploading…" : "Add"}</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={pending}
+              onChange={handleFileChange}
+            />
+          </label>
+        ) : (
+          <Link
+            href="/pricing"
+            className="flex size-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-muted/50"
+          >
+            <Lock className="size-5" />
+            <span className="text-center text-[10px] leading-tight">Pro feature</span>
+          </Link>
+        )}
       </div>
 
       {error && <p className="text-sm text-loss">{error}</p>}

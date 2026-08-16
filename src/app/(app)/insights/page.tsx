@@ -3,6 +3,8 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { canUseFeature } from "@/lib/subscription";
 import { InsightsPanel } from "./insights-panel";
 
 const MIN_TRADES_FOR_INSIGHTS = 10;
@@ -11,7 +13,10 @@ export default async function InsightsPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const closedTradeCount = await db.trade.count({ where: { userId, status: "CLOSED" } });
+  const [hasAccess, closedTradeCount] = await Promise.all([
+    canUseFeature(userId, "AI_INSIGHTS"),
+    db.trade.count({ where: { userId, status: "CLOSED" } }),
+  ]);
 
   return (
     <div>
@@ -20,7 +25,9 @@ export default async function InsightsPage() {
         description="Ask AI to review your own trading data — patterns, tendencies, and what's costing you. Never a market call, never a guarantee."
       />
 
-      {closedTradeCount < MIN_TRADES_FOR_INSIGHTS ? (
+      {!hasAccess ? (
+        <UpgradePrompt feature="AI-Powered Trade Analysis" requiredPlan="PRO_PLUS" />
+      ) : closedTradeCount < MIN_TRADES_FOR_INSIGHTS ? (
         <EmptyState
           icon={Sparkles}
           title="Not enough closed trades yet"

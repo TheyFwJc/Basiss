@@ -28,11 +28,13 @@ export function AppShell({
   userName,
   userEmail,
   notifications,
+  isPaidPlan,
 }: {
   children: React.ReactNode;
   userName?: string | null;
   userEmail?: string | null;
   notifications: NotificationItem[];
+  isPaidPlan: boolean;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -41,7 +43,7 @@ export function AppShell({
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
         <Brand />
-        <SidebarNav />
+        <SidebarNav isPaidPlan={isPaidPlan} />
         <div className="border-t border-sidebar-border p-2">
           <UserMenu name={userName} email={userEmail} />
         </div>
@@ -55,7 +57,7 @@ export function AppShell({
         >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Brand />
-          <SidebarNav />
+          <SidebarNav isPaidPlan={isPaidPlan} />
           <div className="border-t border-sidebar-border p-2">
             <UserMenu name={userName} email={userEmail} />
           </div>

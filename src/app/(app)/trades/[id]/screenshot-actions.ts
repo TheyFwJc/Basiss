@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { isStorageConfigured, uploadScreenshot, deleteScreenshot } from "@/lib/storage";
+import { canUseFeature } from "@/lib/subscription";
 
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
 
@@ -20,6 +21,10 @@ export async function uploadTradeScreenshotAction(
   formData: FormData
 ): Promise<ScreenshotActionResult> {
   const userId = await requireUserId();
+
+  if (!(await canUseFeature(userId, "SCREENSHOTS"))) {
+    return { error: "Trade screenshots are a Pro feature. Upgrade to Pro to unlock them." };
+  }
 
   if (!isStorageConfigured()) {
     return {

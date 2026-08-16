@@ -15,7 +15,9 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { KpiCard } from "@/components/kpi-card";
+import { canUseFeature } from "@/lib/subscription";
 import {
   Table,
   TableBody,
@@ -260,6 +262,18 @@ export default async function AnalyticsPage({
   const params = await searchParams;
   const session = await auth();
   const userId = session!.user.id;
+
+  if (!(await canUseFeature(userId, "ADVANCED_ANALYTICS"))) {
+    return (
+      <div>
+        <PageHeader
+          title="Analytics"
+          description="Break performance down by symbol, direction, strategy, session, time of day, and more."
+        />
+        <UpgradePrompt feature="Advanced Analytics" requiredPlan="PRO" />
+      </div>
+    );
+  }
 
   const [trades, strategies, mistakes] = await Promise.all([
     db.trade.findMany({

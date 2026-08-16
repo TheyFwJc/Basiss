@@ -5,12 +5,14 @@ import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { KpiCard } from "@/components/kpi-card";
+import { LockedKpiCard, UpgradePrompt } from "@/components/upgrade-prompt";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency, formatDate, formatSignedNumber } from "@/lib/format";
 import { AccountFormDialog } from "@/app/(app)/accounts/account-form-dialog";
 import { computeCurrentBalance } from "@/lib/accounts";
+import { canUseFeature } from "@/lib/subscription";
 import {
   computeWinLossStats,
   computeProfitStats,
@@ -31,7 +33,7 @@ export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [accounts, trades] = await Promise.all([
+  const [accounts, trades, hasAdvancedStats] = await Promise.all([
     db.tradingAccount.findMany({
       where: { userId },
       orderBy: { createdAt: "asc" },
@@ -41,6 +43,7 @@ export default async function DashboardPage() {
       orderBy: { entryAt: "desc" },
       include: { strategy: true, tradingAccount: true },
     }),
+    canUseFeature(userId, "ADVANCED_DASHBOARD_STATS"),
   ]);
 
   const totalStartingBalance = accounts.reduce(
@@ -274,60 +277,77 @@ export default async function DashboardPage() {
                   animateValue={winLoss.winRate ?? undefined}
                   format="percent"
                 />
-                <KpiCard
-                  label="Profit factor"
-                  value={profit.profitFactor ? profit.profitFactor.toFixed(2) : "—"}
-                  animateValue={profit.profitFactor?.toNumber()}
-                  format="decimal2"
-                />
-                <KpiCard
-                  label="Expectancy"
-                  value={profit.expectancy ? formatCurrency(profit.expectancy.toString()) : "—"}
-                  valueClassName={
-                    profit.expectancy == null
-                      ? ""
-                      : profit.expectancy.gte(0)
-                        ? "text-profit"
-                        : "text-loss"
-                  }
-                  animateValue={profit.expectancy?.toNumber()}
-                  format="currency"
-                />
-                <KpiCard
-                  label="Avg win"
-                  value={profit.avgWin ? formatCurrency(profit.avgWin.toString()) : "—"}
-                  valueClassName="text-profit"
-                  animateValue={profit.avgWin?.toNumber()}
-                  format="currency"
-                />
-                <KpiCard
-                  label="Avg loss"
-                  value={profit.avgLoss ? formatCurrency(profit.avgLoss.toString()) : "—"}
-                  valueClassName="text-loss"
-                  animateValue={profit.avgLoss?.toNumber()}
-                  format="currency"
-                />
-                <KpiCard
-                  label="Avg R"
-                  value={rStats.avgR ? `${formatSignedNumber(rStats.avgR.toString())}R` : "—"}
-                  animateValue={rStats.avgR?.toNumber()}
-                  format="signedR"
-                />
-                <KpiCard
-                  label="Max drawdown"
-                  value={
-                    drawdown.maxDrawdownAmount.gt(0)
-                      ? formatCurrency(drawdown.maxDrawdownAmount.toString())
-                      : "—"
-                  }
-                  valueClassName={drawdown.maxDrawdownAmount.gt(0) ? "text-loss" : ""}
-                  animateValue={
-                    drawdown.maxDrawdownAmount.gt(0)
-                      ? drawdown.maxDrawdownAmount.toNumber()
-                      : undefined
-                  }
-                  format="currency"
-                />
+                {hasAdvancedStats ? (
+                  <>
+                    <KpiCard
+                      label="Profit factor"
+                      value={profit.profitFactor ? profit.profitFactor.toFixed(2) : "—"}
+                      animateValue={profit.profitFactor?.toNumber()}
+                      format="decimal2"
+                    />
+                    <KpiCard
+                      label="Expectancy"
+                      value={
+                        profit.expectancy ? formatCurrency(profit.expectancy.toString()) : "—"
+                      }
+                      valueClassName={
+                        profit.expectancy == null
+                          ? ""
+                          : profit.expectancy.gte(0)
+                            ? "text-profit"
+                            : "text-loss"
+                      }
+                      animateValue={profit.expectancy?.toNumber()}
+                      format="currency"
+                    />
+                    <KpiCard
+                      label="Avg win"
+                      value={profit.avgWin ? formatCurrency(profit.avgWin.toString()) : "—"}
+                      valueClassName="text-profit"
+                      animateValue={profit.avgWin?.toNumber()}
+                      format="currency"
+                    />
+                    <KpiCard
+                      label="Avg loss"
+                      value={profit.avgLoss ? formatCurrency(profit.avgLoss.toString()) : "—"}
+                      valueClassName="text-loss"
+                      animateValue={profit.avgLoss?.toNumber()}
+                      format="currency"
+                    />
+                    <KpiCard
+                      label="Avg R"
+                      value={
+                        rStats.avgR ? `${formatSignedNumber(rStats.avgR.toString())}R` : "—"
+                      }
+                      animateValue={rStats.avgR?.toNumber()}
+                      format="signedR"
+                    />
+                    <KpiCard
+                      label="Max drawdown"
+                      value={
+                        drawdown.maxDrawdownAmount.gt(0)
+                          ? formatCurrency(drawdown.maxDrawdownAmount.toString())
+                          : "—"
+                      }
+                      valueClassName={drawdown.maxDrawdownAmount.gt(0) ? "text-loss" : ""}
+                      animateValue={
+                        drawdown.maxDrawdownAmount.gt(0)
+                          ? drawdown.maxDrawdownAmount.toNumber()
+                          : undefined
+                      }
+                      format="currency"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <LockedKpiCard label="Profit factor" requiredPlan="PRO" />
+                    <LockedKpiCard label="Expectancy" requiredPlan="PRO" />
+                    <LockedKpiCard label="Avg win" requiredPlan="PRO" />
+                    <LockedKpiCard label="Avg loss" requiredPlan="PRO" />
+                    <LockedKpiCard label="Avg R" requiredPlan="PRO" />
+                    <LockedKpiCard label="Max drawdown" requiredPlan="PRO" />
+                  </>
+                )}
                 <KpiCard
                   label="Total trades"
                   value={winLoss.totalTrades}
@@ -513,7 +533,11 @@ export default async function DashboardPage() {
                 </div>
               )}
 
-              {setups.length > 0 && (
+              {setups.length > 0 && !hasAdvancedStats && (
+                <UpgradePrompt feature="Strategy Analytics" requiredPlan="PRO" />
+              )}
+
+              {setups.length > 0 && hasAdvancedStats && (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <Card>
                     <CardHeader>

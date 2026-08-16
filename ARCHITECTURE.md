@@ -284,6 +284,66 @@ it. Revisit if usage outgrows Gemini's free-tier rate limits. Two pieces:
   `MIN_TRADES_FOR_INSIGHTS` (10) closed trades it declines with a
   not-enough-data message instead of calling the API at all.
 
+## Subscriptions & billing
+
+Free/Pro/Pro+ plans, gating, and Stripe integration. See README.md's
+"Subscriptions & billing" section for the operator-facing setup steps
+(Stripe Dashboard objects, env vars, webhook config, test-mode testing).
+
+- **`src/lib/plans.ts`** is the single source of truth for plan definitions
+  (pricing, feature list, `FREE_TRADE_LIMIT`) and pure plan-comparison logic
+  (`hasPlan`, `hasFeature`, `getEffectivePlan`) — DB-free and unit tested, so
+  it's cheap to reason about and safe to import from client code (e.g. the
+  pricing page) as well as server code.
+- **`getEffectivePlan`** is the one place cancellation grace periods are
+  handled: a `CANCELED` subscription still grants its plan until
+  `currentPeriodEnd` passes, matching Stripe's own "cancels at period end"
+  behavior rather than revoking access the moment cancellation is requested.
+  `PAST_DUE` also still grants access — Stripe is still retrying the charge;
+  access is only pulled once Stripe itself moves the subscription to
+  `canceled` or `unpaid`.
+- **`src/lib/subscription.ts`** is the DB-touching layer built on top of
+  `plans.ts` — `getSubscription`, `canUseFeature`, `requireFeature`, and
+  `canAddTrade` (the Free-plan monthly trade cap, counted by `createdAt` so
+  imported/backdated trades count the same as trades entered live). Every
+  page and Server Action that gates a feature calls into this file — nothing
+  re-derives plan access ad hoc.
+- **`src/lib/stripe.ts`** wraps the Stripe SDK: a cached client, and
+  `resolvePriceId`/`planFromPriceId` as the *only* place a (plan, interval)
+  pair maps to/from an actual Stripe Price ID (read from environment
+  variables). The client is never asked to choose or trust a price.
+- **`src/app/(app)/pricing/actions.ts`** — `createCheckoutSessionAction`
+  (new subscribers), `changePlanAction` (in-place plan/interval switches for
+  existing subscribers, via `stripe.subscriptions.update` on the existing
+  subscription — deliberately *not* a second Checkout session, which would
+  create a second concurrent subscription), and
+  `createPortalSessionAction` (Stripe's hosted Billing Portal handles
+  payment method updates, invoices, and cancellation — no custom card UI).
+- **`src/app/api/stripe/webhook/route.ts`** is the only place subscription
+  state is written from Stripe into the database — the database is the
+  source of truth for feature access everywhere else, never a client-supplied
+  plan or the checkout return URL. Idempotent via the `StripeWebhookEvent`
+  table (keyed by Stripe's event ID): an event is recorded as processed only
+  *after* it's successfully handled, so a redelivered event either no-ops
+  (already recorded) or safely reprocesses (if the first attempt failed
+  before recording). `checkout.session.completed`,
+  `customer.subscription.created/updated` all funnel through one
+  `syncSubscription` function that reads the subscription's current price
+  and status and upserts it onto whichever user matches the Stripe customer
+  ID (falling back to `metadata.userId` stashed at checkout time).
+- This route is also the one exception carved into the auth proxy's
+  `PUBLIC_PATHS` (`src/auth.config.ts`) — Stripe calls it with no user
+  session, authenticating via signature instead; the same class of bug that
+  briefly broke the generated favicon route (see git history) would break
+  this endpoint entirely if it required a session.
+- **Gating pattern**: pages that gate a whole feature (Analytics, Insights,
+  Screenshots' upload control) check `canUseFeature`/`requireFeature` both
+  in the page (so the UI shows `UpgradePrompt`/`LockedKpiCard` instead of the
+  real content) *and* in the underlying Server Action (so the feature can't
+  be reached by calling the action directly, bypassing the page). The
+  Dashboard KPI grid and Calendar's weekly/monthly totals use the same
+  pattern at a per-widget level via `LockedKpiCard`.
+
 ## Build phases
 
 1. **Foundation** *(done)* — auth, database, trading accounts, nav, design

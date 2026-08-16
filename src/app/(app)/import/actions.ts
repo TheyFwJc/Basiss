@@ -15,6 +15,7 @@ import {
   commitImportSchema,
   type ColumnMapping,
 } from "@/lib/validations/import";
+import { canAddTrade } from "@/lib/subscription";
 
 async function requireUserId() {
   const session = await auth();
@@ -205,6 +206,19 @@ export async function commitImportAction(input: unknown): Promise<CommitImportRe
     return {
       error: "Couldn't group these executions into trades — check the data and try again.",
     };
+  }
+
+  const limit = await canAddTrade(userId);
+  if (limit.limit != null) {
+    const remaining = Math.max(0, limit.limit - limit.count);
+    if (groups.length > remaining) {
+      return {
+        error:
+          remaining === 0
+            ? `You've reached the Free plan's limit of ${limit.limit} trades this month. Upgrade to Pro for unlimited trades.`
+            : `This import would create ${groups.length} trades, but your Free plan only has ${remaining} left this month. Upgrade to Pro for unlimited trades, or import fewer rows.`,
+      };
+    }
   }
 
   try {

@@ -1,6 +1,8 @@
 import type { NextAuthConfig } from "next-auth";
 
-const PUBLIC_PATHS = ["/login", "/signup", "/reset-password"];
+// Stripe's webhook has no user session — it authenticates via signature
+// verification instead (see src/app/api/stripe/webhook/route.ts).
+const PUBLIC_PATHS = ["/login", "/signup", "/reset-password", "/api/stripe/webhook"];
 
 export const authConfig = {
   pages: {

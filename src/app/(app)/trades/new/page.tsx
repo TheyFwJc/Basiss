@@ -3,15 +3,17 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { Button } from "@/components/ui/button";
 import { Wallet } from "lucide-react";
+import { canAddTrade } from "@/lib/subscription";
 import { TradeForm } from "../trade-form";
 
 export default async function NewTradePage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [accounts, strategies, playbooks, mistakes, checklists, recentTrades] =
+  const [accounts, strategies, playbooks, mistakes, checklists, recentTrades, tradeLimit] =
     await Promise.all([
       db.tradingAccount.findMany({
         where: { userId },
@@ -45,6 +47,7 @@ export default async function NewTradePage() {
         select: { symbol: true },
         take: 8,
       }),
+      canAddTrade(userId),
     ]);
   const recentSymbols = recentTrades.map((t) => t.symbol);
 
@@ -64,6 +67,15 @@ export default async function NewTradePage() {
             />
           }
         />
+      </div>
+    );
+  }
+
+  if (!tradeLimit.allowed) {
+    return (
+      <div>
+        <PageHeader title="Add trade" />
+        <UpgradePrompt feature="Unlimited trades" requiredPlan="PRO" />
       </div>
     );
   }

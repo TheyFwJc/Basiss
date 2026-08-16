@@ -13,6 +13,7 @@ import {
   formatDuration,
   formatSignedNumber,
 } from "@/lib/format";
+import { canUseFeature } from "@/lib/subscription";
 import { DeleteTradeButton } from "./delete-trade-button";
 import { ReviewForm } from "./review-form";
 import { ScreenshotGallery } from "./screenshot-gallery";
@@ -34,6 +35,7 @@ export default async function TradeDetailPage({
   const { id } = await params;
   const session = await auth();
   const userId = session!.user.id;
+  const canUploadScreenshots = await canUseFeature(userId, "SCREENSHOTS");
 
   const trade = await db.trade.findFirst({
     where: { id, userId },
@@ -262,7 +264,11 @@ export default async function TradeDetailPage({
           <CardTitle className="text-base">Screenshots</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScreenshotGallery tradeId={trade.id} screenshots={trade.screenshots} />
+          <ScreenshotGallery
+            tradeId={trade.id}
+            screenshots={trade.screenshots}
+            canUpload={canUploadScreenshots}
+          />
         </CardContent>
       </Card>
 

@@ -50,13 +50,19 @@ feature set, only the general category of functionality was used as a reference.
   data, never a market call or a guarantee. Requires a `GEMINI_API_KEY` (see
   below); the rest of the app works fully without one.
 - Settings (profile, timezone, base currency)
+- Subscriptions & billing: Free/Pro/Pro+ plans via Stripe — pricing page
+  (`/pricing`) with monthly/yearly toggle, Stripe Checkout, a billing
+  portal for managing/canceling, and centralized feature gating (trade
+  screenshots, advanced analytics, advanced dashboard stats, AI Insights
+  are Pro/Pro+; Free is capped at a configurable number of trades/month).
+  See "Subscriptions & billing" below for setup — the app runs fine
+  without Stripe configured, every paid feature just stays locked.
 - A demo data seed script (`npm run db:seed`) creates a `demo@basisapp.dev`
   account with realistic sample trades, kept fully separate from real user
   accounts
 
-Not yet built: trade screenshots (needs a storage backend decision) and
-charts/replay/backtesting infrastructure (Phase 7, deferred pending a
-market-data provider decision) — see [ARCHITECTURE.md](./ARCHITECTURE.md)
+Not yet built: charts/replay/backtesting infrastructure (Phase 7, deferred
+pending a market-data provider decision) — see [ARCHITECTURE.md](./ARCHITECTURE.md)
 for the full phase plan.
 
 ## Tech stack
@@ -142,6 +148,95 @@ add a trading account to see the dashboard populate.
 Screenshot/file storage, a transactional email provider (for password reset
 emails), and broker/market-data integrations are not yet wired up — see
 [ARCHITECTURE.md](./ARCHITECTURE.md) for what's deferred to later phases and why.
+
+## Subscriptions & billing
+
+Free/Pro/Pro+ plans are wired up via Stripe, but **this is not production-ready
+out of the box** — it needs real Stripe objects and keys before checkout or
+the webhook will work. Until you set these up, `/pricing` and `/billing` show
+a "billing isn't configured yet" message rather than failing, and every user
+is simply on the Free plan.
+
+### 1. Create the Stripe objects
+
+In the [Stripe Dashboard](https://dashboard.stripe.com/test/products) (Test
+mode is fine to start), create one **Product** per plan, each with two
+**Prices**:
+
+| Product  | Price nickname | Billing period | Amount   |
+| -------- | --------------- | --------------- | -------- |
+| Pro      | Pro Monthly      | Monthly          | $4.99    |
+| Pro      | Pro Yearly       | Yearly           | $39.99   |
+| Pro+     | Pro+ Monthly     | Monthly          | $9.99    |
+| Pro+     | Pro+ Yearly      | Yearly           | $79.99   |
+
+After creating each Price, copy its **Price ID** (starts with `price_...`).
+
+### 2. Set environment variables
+
+Add these to `.env` (local) and to your hosting provider's environment
+variables (production) — see `.env.example` for the full list with comments:
+
+```
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRO_MONTHLY_PRICE_ID=price_...
+STRIPE_PRO_YEARLY_PRICE_ID=price_...
+STRIPE_PRO_PLUS_MONTHLY_PRICE_ID=price_...
+STRIPE_PRO_PLUS_YEARLY_PRICE_ID=price_...
+```
+
+`STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` are on the
+[API keys](https://dashboard.stripe.com/test/apikeys) page.
+
+### 3. Configure the webhook
+
+The webhook endpoint is `/api/stripe/webhook` and needs `STRIPE_WEBHOOK_SECRET`
+to verify Stripe's signature — **the database is only ever updated through
+this endpoint**, never from the client returning from checkout.
+
+- **Local testing:** install the [Stripe CLI](https://docs.stripe.com/stripe-cli),
+  then run:
+  ```bash
+  stripe login
+  stripe listen --forward-to localhost:3000/api/stripe/webhook
+  ```
+  This prints a `whsec_...` value — put that in your local `.env` as
+  `STRIPE_WEBHOOK_SECRET`.
+- **Production:** in the Stripe Dashboard, go to
+  [Developers → Webhooks](https://dashboard.stripe.com/test/webhooks) → **Add
+  endpoint** → URL `https://your-domain.com/api/stripe/webhook` → select these
+  events:
+  - `checkout.session.completed`
+  - `customer.subscription.created`
+  - `customer.subscription.updated`
+  - `customer.subscription.deleted`
+  - `invoice.paid`
+  - `invoice.payment_failed`
+
+  Copy the endpoint's **Signing secret** into `STRIPE_WEBHOOK_SECRET` on your
+  hosting provider.
+
+### 4. Test it end to end (Stripe test mode)
+
+With `stripe listen` running locally (step 3) and `npm run dev` running:
+
+1. Sign up/log in, go to `/pricing`, click **Upgrade to Pro**.
+2. On Stripe's Checkout page, use a
+   [test card](https://docs.stripe.com/testing#cards) — `4242 4242 4242 4242`,
+   any future expiry, any CVC, any ZIP.
+3. You should land back on `/billing` and, within a few seconds (once the
+   webhook fires), see the Pro plan reflected.
+4. To test a failed payment, use the decline test card `4000 0000 0000 0002`.
+5. To test cancellation, go to `/billing` → **Manage Billing** → cancel in the
+   Stripe portal → confirm the app still shows Pro access until the period end
+   date, per the webhook update.
+
+### Changing the free trade limit
+
+Edit `FREE_TRADE_LIMIT` in `src/lib/plans.ts` — everywhere that enforces or
+displays the limit reads from that one constant.
 
 ## Architecture
 

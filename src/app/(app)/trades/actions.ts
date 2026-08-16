@@ -7,6 +7,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { tradeSchema, type TradeInput } from "@/lib/validations/trade";
 import { computeTradePnl, computeRiskAmount, computeRMultiple } from "@/lib/pnl";
+import { canAddTrade } from "@/lib/subscription";
 
 export type ActionState = { error?: string } | null;
 
@@ -113,6 +114,14 @@ export async function createTradeAction(
   input: TradeInput
 ): Promise<{ error: string } | { id: string }> {
   const userId = await requireUserId();
+
+  const limit = await canAddTrade(userId);
+  if (!limit.allowed) {
+    return {
+      error: `You've reached the Free plan's limit of ${limit.limit} trades this month. Upgrade to Pro for unlimited trades.`,
+    };
+  }
+
   const parsed = tradeSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
