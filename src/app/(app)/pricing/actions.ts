@@ -76,7 +76,8 @@ export async function createCheckoutSessionAction(
 
     if (!session.url) return { error: "Stripe didn't return a checkout URL. Please try again." };
     return { url: session.url };
-  } catch {
+  } catch (error) {
+    console.error("createCheckoutSessionAction failed:", error);
     return { error: "Couldn't start checkout. Please try again in a moment." };
   }
 }
@@ -132,7 +133,8 @@ export async function changePlanAction(
     });
 
     return { url: `${baseUrl()}/billing?checkout=success` };
-  } catch {
+  } catch (error) {
+    console.error("changePlanAction failed:", error);
     return { error: "Couldn't change your plan. Please try again in a moment." };
   }
 }
@@ -164,7 +166,8 @@ export async function createPortalSessionAction(): Promise<BillingActionResult> 
       return_url: `${baseUrl()}/billing`,
     });
     return { url: session.url };
-  } catch {
+  } catch (error) {
+    console.error("createPortalSessionAction failed:", error);
     return { error: "Couldn't open the billing portal. Please try again in a moment." };
   }
 }
