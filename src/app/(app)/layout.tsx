@@ -15,13 +15,14 @@ export default async function AppLayout({
 
   const userId = session.user.id;
   await generateNotifications(userId);
-  const [notifications, subscription] = await Promise.all([
+  const [notifications, subscription, user] = await Promise.all([
     db.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
       take: 20,
     }),
     getSubscription(userId),
+    db.user.findUniqueOrThrow({ where: { id: userId }, select: { welcomedAt: true } }),
   ]);
 
   return (
@@ -29,6 +30,7 @@ export default async function AppLayout({
       userName={session.user.name}
       userEmail={session.user.email}
       isPaidPlan={subscription.effectivePlan !== "FREE"}
+      isNewUser={user.welcomedAt === null}
       notifications={notifications.map((n) => ({
         id: n.id,
         type: n.type,

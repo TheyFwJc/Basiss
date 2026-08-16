@@ -10,6 +10,7 @@ import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationsBell, type NotificationItem } from "./notifications-bell";
+import { WelcomeExperience } from "@/components/welcome-experience";
 
 function Brand() {
   return (
@@ -29,17 +30,20 @@ export function AppShell({
   userEmail,
   notifications,
   isPaidPlan,
+  isNewUser,
 }: {
   children: React.ReactNode;
   userName?: string | null;
   userEmail?: string | null;
   notifications: NotificationItem[];
   isPaidPlan: boolean;
+  isNewUser: boolean;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
 
   return (
     <div className="flex min-h-screen bg-background">
+      <WelcomeExperience isNewUser={isNewUser} userName={userName} />
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
         <Brand />

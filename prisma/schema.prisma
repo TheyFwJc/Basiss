@@ -56,6 +56,11 @@ model User {
   subscriptionStartedAt  DateTime?
   subscriptionCanceledAt DateTime?
 
+  /** Null until the user clicks through the first-run welcome screen —
+   * everything after that (including pre-existing users, backfilled at
+   * migration time) is treated as a "welcome back" visit instead. */
+  welcomedAt DateTime?
+
   settings            UserSettings?
   tradingAccounts     TradingAccount[]
   trades              Trade[]
