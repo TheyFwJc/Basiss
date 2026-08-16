@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Check, Sparkles, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ export function PricingCards({
   currentPlan,
   currentInterval,
 }: {
-  currentPlan: Plan;
+  currentPlan: Plan | null;
   currentInterval: Interval | null;
 }) {
   const [interval, setInterval] = useState<Interval>(currentInterval ?? "MONTHLY");
@@ -112,7 +113,9 @@ export function PricingCards({
           let onClick: (() => void) | undefined;
           let disabled = false;
 
-          if (plan === "FREE") {
+          if (currentPlan === null) {
+            ctaLabel = plan === "FREE" ? "Sign up free" : `Sign up for ${def.name}`;
+          } else if (plan === "FREE") {
             if (currentPlan === "FREE") {
               ctaLabel = "Current Plan";
               disabled = true;
@@ -183,22 +186,31 @@ export function PricingCards({
                     </li>
                   ))}
                 </ul>
-                <Button
-                  type="button"
-                  disabled={disabled || pending}
-                  onClick={onClick}
-                  variant={isRecommended ? "default" : "outline"}
-                  className={cn("w-full", isRecommended && !disabled && "border-glow")}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" />
-                      Redirecting…
-                    </>
-                  ) : (
-                    ctaLabel
-                  )}
-                </Button>
+                {currentPlan === null ? (
+                  <Button
+                    render={<Link href="/signup">{ctaLabel}</Link>}
+                    nativeButton={false}
+                    variant={isRecommended ? "default" : "outline"}
+                    className={cn("w-full", isRecommended && "border-glow")}
+                  />
+                ) : (
+                  <Button
+                    type="button"
+                    disabled={disabled || pending}
+                    onClick={onClick}
+                    variant={isRecommended ? "default" : "outline"}
+                    className={cn("w-full", isRecommended && !disabled && "border-glow")}
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" />
+                        Redirecting…
+                      </>
+                    ) : (
+                      ctaLabel
+                    )}
+                  </Button>
+                )}
               </CardContent>
             </Card>
           );

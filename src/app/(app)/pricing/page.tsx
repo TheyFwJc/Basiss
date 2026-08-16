@@ -9,9 +9,8 @@ export default async function PricingPage({
   searchParams: Promise<{ checkout?: string }>;
 }) {
   const session = await auth();
-  const userId = session!.user.id;
   const params = await searchParams;
-  const subscription = await getSubscription(userId);
+  const subscription = session?.user?.id ? await getSubscription(session.user.id) : null;
 
   return (
     <div>
@@ -27,8 +26,8 @@ export default async function PricingPage({
       )}
 
       <PricingCards
-        currentPlan={subscription.effectivePlan}
-        currentInterval={subscription.billingInterval}
+        currentPlan={subscription?.effectivePlan ?? null}
+        currentInterval={subscription?.billingInterval ?? null}
       />
     </div>
   );

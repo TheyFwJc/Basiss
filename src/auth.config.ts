@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/signup",
   "/reset-password",
+  "/pricing",
   "/api/stripe/webhook",
   "/api/tradingview/webhook",
 ];

@@ -1,9 +1,11 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { generateNotifications } from "@/lib/generate-notifications";
 import { getSubscription } from "@/lib/subscription";
 import { AppShell } from "@/components/nav/app-shell";
+import { PublicShell } from "@/components/nav/public-shell";
 
 export default async function AppLayout({
   children,
@@ -11,7 +13,13 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) {
+    // /pricing is the one (app) route that also needs to work as a public
+    // marketing page — everything else still requires a session.
+    const pathname = (await headers()).get("x-pathname");
+    if (pathname === "/pricing") return <PublicShell>{children}</PublicShell>;
+    redirect("/login");
+  }
 
   const userId = session.user.id;
   await generateNotifications(userId);
