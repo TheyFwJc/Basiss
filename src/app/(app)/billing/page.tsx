@@ -119,14 +119,16 @@ export default async function BillingPage({
               <p className="text-sm text-muted-foreground">
                 {monthlyTradeCount}/{FREE_TRADE_LIMIT} trades used this month
               </p>
-            ) : (
+            ) : billingInterval ? (
               <p className="font-numeric text-sm text-muted-foreground">
                 {formatCurrency(amount)} / {billingInterval === "MONTHLY" ? "month" : "year"}
               </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Comped — not billed through Stripe</p>
             )}
           </div>
 
-          {plan !== "FREE" && (
+          {plan !== "FREE" && billingInterval && (
             <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 sm:grid-cols-3">
               <div>
                 <p className="text-xs text-muted-foreground">Billing frequency</p>
