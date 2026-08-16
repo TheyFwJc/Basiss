@@ -45,7 +45,7 @@ export default async function StrategiesPage() {
         <EmptyState
           icon={Target}
           title="No strategies yet"
-          description="Define entry/exit criteria, stop and target rules for a strategy, then tag trades with it to see how it performs (once analytics ship in Phase 3)."
+          description="Define entry/exit criteria, stop and target rules for a strategy, then tag trades with it to see how it performs in Analytics."
           actions={
             <StrategyFormDialog
               trigger={
