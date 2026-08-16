@@ -21,8 +21,12 @@ export function EquityCurveChart({
       <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+            <stop offset="0%" stopColor="var(--brand-from)" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="var(--brand-to)" stopOpacity={0} />
+          </linearGradient>
+          <linearGradient id="equityStroke" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="var(--brand-from)" />
+            <stop offset="100%" stopColor="var(--brand-to)" />
           </linearGradient>
         </defs>
         <CartesianGrid stroke="var(--color-border)" vertical={false} />
@@ -54,9 +58,10 @@ export function EquityCurveChart({
         <Area
           type="monotone"
           dataKey="equity"
-          stroke="var(--color-primary)"
-          strokeWidth={2}
+          stroke="url(#equityStroke)"
+          strokeWidth={2.5}
           fill="url(#equityFill)"
+          activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--color-background)" }}
         />
       </AreaChart>
     </ResponsiveContainer>

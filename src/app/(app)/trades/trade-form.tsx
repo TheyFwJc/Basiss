@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, TrendingUp, TrendingDown } from "lucide-react";
+import { Plus, Trash2, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -271,6 +271,9 @@ export function TradeForm({
   const isEdit = !!defaults;
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Collapsed by default for a new trade so logging one stays quick; expanded
+  // when editing so nothing already filled in looks like it disappeared.
+  const [showOptional, setShowOptional] = useState(isEdit);
 
   const accountItems = Object.fromEntries(accounts.map((a) => [a.id, a.name]));
   const strategyItems = Object.fromEntries(
@@ -541,9 +544,25 @@ export function TradeForm({
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Optional</CardTitle>
-        </CardHeader>
+        <button
+          type="button"
+          onClick={() => setShowOptional((v) => !v)}
+          className="flex w-full items-center justify-between px-6 py-6 text-left"
+        >
+          <div>
+            <CardTitle className="text-base">Optional details</CardTitle>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Stop/target, strategy, session, notes, ratings, mistakes.
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "size-4 shrink-0 text-muted-foreground transition-transform duration-200",
+              showOptional && "rotate-180"
+            )}
+          />
+        </button>
+        {showOptional && (
         <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="flex flex-col gap-2">
@@ -812,6 +831,7 @@ export function TradeForm({
             )}
           </div>
         </CardContent>
+        )}
       </Card>
 
       {error && <p className="text-sm text-loss">{error}</p>}

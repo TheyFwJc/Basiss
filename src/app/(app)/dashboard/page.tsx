@@ -1,10 +1,28 @@
 import Link from "next/link";
-import { Wallet, Plus, ArrowRight, ListChecks, Flame, Snowflake } from "lucide-react";
+import {
+  Wallet,
+  Plus,
+  ArrowRight,
+  ListChecks,
+  Flame,
+  Snowflake,
+  DollarSign,
+  CalendarClock,
+  Percent,
+  Scale,
+  Target,
+  ArrowUpRight,
+  ArrowDownRight,
+  Gauge,
+  TrendingDown,
+} from "lucide-react";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { KpiCard } from "@/components/kpi-card";
+import { AnimatedNumber } from "@/components/animated-number";
+import { SymbolBadge } from "@/components/symbol-badge";
 import { LockedKpiCard, UpgradePrompt } from "@/components/upgrade-prompt";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +155,38 @@ export default async function DashboardPage() {
         description="Here's where your trading performance will live."
       />
 
+      {accounts.length > 0 && trades.length > 0 && (
+        <div className="animate-fade-in-up relative mb-6 overflow-hidden rounded-xl border border-border bg-brand-gradient p-6 text-white shadow-lg sm:p-8">
+          <div
+            aria-hidden
+            className="animate-glow-pulse pointer-events-none absolute -top-16 -right-16 size-56 rounded-full bg-white/20 blur-3xl"
+          />
+          <p className="relative text-sm font-medium text-white/80">Total P&amp;L, all-time</p>
+          <p className="relative mt-1 font-numeric text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+            <AnimatedNumber value={profit.netPnl.toNumber()} format="currency" />
+          </p>
+          <div className="relative mt-4 flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+              {winLoss.winRate == null ? "—" : `${winLoss.winRate.toFixed(0)}%`} win rate
+            </span>
+            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+              {winLoss.totalTrades} trade{winLoss.totalTrades === 1 ? "" : "s"}
+            </span>
+            {streaks.current.type && (
+              <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium backdrop-blur-sm">
+                {streaks.current.type === "WIN" ? (
+                  <Flame className="size-3" />
+                ) : (
+                  <Snowflake className="size-3" />
+                )}
+                {streaks.current.count} {streaks.current.type === "WIN" ? "win" : "loss"}
+                {streaks.current.count === 1 ? "" : "es"} streak
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {accounts.length === 0 ? (
         <EmptyState
           icon={Wallet}
@@ -263,6 +313,8 @@ export default async function DashboardPage() {
                   valueClassName={profit.netPnl.gte(0) ? "text-profit" : "text-loss"}
                   animateValue={profit.netPnl.toNumber()}
                   format="currency"
+                  icon={DollarSign}
+                  delayMs={0}
                 />
                 <KpiCard
                   label="Today P&L"
@@ -270,12 +322,16 @@ export default async function DashboardPage() {
                   valueClassName={todayPnl >= 0 ? "text-profit" : "text-loss"}
                   animateValue={todayPnl}
                   format="currency"
+                  icon={CalendarClock}
+                  delayMs={40}
                 />
                 <KpiCard
                   label="Win rate"
                   value={winLoss.winRate == null ? "—" : `${winLoss.winRate.toFixed(0)}%`}
                   animateValue={winLoss.winRate ?? undefined}
                   format="percent"
+                  icon={Percent}
+                  delayMs={80}
                 />
                 {hasAdvancedStats ? (
                   <>
@@ -284,6 +340,8 @@ export default async function DashboardPage() {
                       value={profit.profitFactor ? profit.profitFactor.toFixed(2) : "—"}
                       animateValue={profit.profitFactor?.toNumber()}
                       format="decimal2"
+                      icon={Scale}
+                      delayMs={120}
                     />
                     <KpiCard
                       label="Expectancy"
@@ -299,6 +357,8 @@ export default async function DashboardPage() {
                       }
                       animateValue={profit.expectancy?.toNumber()}
                       format="currency"
+                      icon={Target}
+                      delayMs={160}
                     />
                     <KpiCard
                       label="Avg win"
@@ -306,6 +366,8 @@ export default async function DashboardPage() {
                       valueClassName="text-profit"
                       animateValue={profit.avgWin?.toNumber()}
                       format="currency"
+                      icon={ArrowUpRight}
+                      delayMs={200}
                     />
                     <KpiCard
                       label="Avg loss"
@@ -313,6 +375,8 @@ export default async function DashboardPage() {
                       valueClassName="text-loss"
                       animateValue={profit.avgLoss?.toNumber()}
                       format="currency"
+                      icon={ArrowDownRight}
+                      delayMs={240}
                     />
                     <KpiCard
                       label="Avg R"
@@ -321,6 +385,8 @@ export default async function DashboardPage() {
                       }
                       animateValue={rStats.avgR?.toNumber()}
                       format="signedR"
+                      icon={Gauge}
+                      delayMs={280}
                     />
                     <KpiCard
                       label="Max drawdown"
@@ -336,6 +402,8 @@ export default async function DashboardPage() {
                           : undefined
                       }
                       format="currency"
+                      icon={TrendingDown}
+                      delayMs={320}
                     />
                   </>
                 ) : (
@@ -353,6 +421,8 @@ export default async function DashboardPage() {
                   value={winLoss.totalTrades}
                   animateValue={winLoss.totalTrades}
                   format="integer"
+                  icon={ListChecks}
+                  delayMs={360}
                 />
               </div>
 
@@ -404,9 +474,10 @@ export default async function DashboardPage() {
                         <Link
                           key={trade.id}
                           href={`/trades/${trade.id}`}
-                          className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm hover:bg-muted/50"
+                          className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted/50"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <SymbolBadge symbol={trade.symbol} />
                             <Badge
                               variant={trade.direction === "LONG" ? "default" : "secondary"}
                             >
@@ -480,7 +551,8 @@ export default async function DashboardPage() {
                           href={`/trades/${bestTrade.id}`}
                           className="flex items-center justify-between rounded-md border border-profit/30 bg-profit-muted px-3 py-2 text-sm transition-colors hover:bg-profit-muted/80"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <SymbolBadge symbol={bestTrade.symbol} />
                             <Badge
                               variant={bestTrade.direction === "LONG" ? "default" : "secondary"}
                             >
@@ -510,7 +582,8 @@ export default async function DashboardPage() {
                           href={`/trades/${worstTrade.id}`}
                           className="flex items-center justify-between rounded-md border border-loss/30 bg-loss-muted px-3 py-2 text-sm transition-colors hover:bg-loss-muted/80"
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2.5">
+                            <SymbolBadge symbol={worstTrade.symbol} />
                             <Badge
                               variant={worstTrade.direction === "LONG" ? "default" : "secondary"}
                             >
