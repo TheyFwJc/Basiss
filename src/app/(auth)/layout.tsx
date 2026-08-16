@@ -10,6 +10,7 @@ import { BrandMark } from "@/components/brand-mark";
 import { LandingPreview } from "@/app/landing-preview";
 import { PLANS } from "@/lib/plans";
 import { formatCurrency } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 const SIDE_FEATURES = [
   { icon: LineChart, text: "Decimal-safe P&L, R-multiple, and win rate — computed for you" },
@@ -61,28 +62,44 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           ))}
         </ul>
 
-        <div className="rounded-xl border border-border bg-card/60 p-4 backdrop-blur-sm sm:p-5">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-sm font-medium">Simple pricing</p>
-            <Link href="/pricing" className="text-xs text-primary hover:underline">
-              See all plans →
+        <div className="rounded-2xl border border-border bg-card/60 p-5 shadow-sm backdrop-blur-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-semibold">Plans for every trader</p>
+            <Link
+              href="/pricing"
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Compare all →
             </Link>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            {PRICING_STRIP.map((plan) => (
-              <div
-                key={plan.id}
-                className="rounded-lg border border-border bg-background/60 p-3 text-center"
-              >
-                <p className="text-xs text-muted-foreground">{plan.name}</p>
-                <p className="font-numeric text-lg font-bold tracking-tight">
-                  {plan.monthlyPrice === 0 ? "Free" : formatCurrency(plan.monthlyPrice)}
-                </p>
-                {plan.monthlyPrice > 0 && (
-                  <p className="text-[10px] text-muted-foreground">/mo</p>
-                )}
-              </div>
-            ))}
+          <div className="grid grid-cols-3 gap-3 pt-2.5">
+            {PRICING_STRIP.map((plan) => {
+              const isRecommended = plan.id === "PRO";
+              return (
+                <div
+                  key={plan.id}
+                  className={cn(
+                    "relative flex flex-col items-center gap-0.5 rounded-xl border p-3 text-center transition-transform duration-200",
+                    isRecommended
+                      ? "-translate-y-1.5 border-primary/50 bg-background shadow-md"
+                      : "border-border/60 bg-background/40"
+                  )}
+                >
+                  {isRecommended && (
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-brand-gradient px-2 py-0.5 text-[9px] font-semibold whitespace-nowrap text-white shadow-sm">
+                      Most popular
+                    </span>
+                  )}
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">{plan.name}</p>
+                  <p className="font-numeric text-xl font-bold tracking-tight">
+                    {plan.monthlyPrice === 0 ? "Free" : formatCurrency(plan.monthlyPrice)}
+                  </p>
+                  {plan.monthlyPrice > 0 && (
+                    <p className="text-[10px] text-muted-foreground">/month</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
