@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -12,6 +13,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { NotificationsBell, type NotificationItem } from "./notifications-bell";
 import { WelcomeExperience } from "@/components/welcome-experience";
 import { EntryTransition } from "@/components/entry-transition";
+import { PageTransition } from "./page-transition";
 
 function Brand() {
   return (
@@ -44,6 +46,14 @@ export function AppShell({
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [entryDone, setEntryDone] = React.useState(false);
+  const pathname = usePathname();
+
+  // Close the mobile drawer once navigation actually lands on the new page,
+  // rather than the instant the link is clicked.
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMobileOpen(false);
+  }, [pathname]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -88,7 +98,9 @@ export function AppShell({
           <NotificationsBell notifications={notifications} />
           <ThemeToggle />
         </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+          <PageTransition>{children}</PageTransition>
+        </main>
       </div>
     </div>
   );

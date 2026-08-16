@@ -12,6 +12,7 @@ import { BrandMark } from "@/components/brand-mark";
  * to unmount and let the rest of the shell take over.
  */
 export function EntryTransition({ onDone }: { onDone: () => void }) {
+  const [entered, setEntered] = React.useState(false);
   const [zooming, setZooming] = React.useState(false);
 
   React.useEffect(() => {
@@ -22,9 +23,11 @@ export function EntryTransition({ onDone }: { onDone: () => void }) {
       onDone();
       return;
     }
-    const startTimer = window.setTimeout(() => setZooming(true), 150);
-    const doneTimer = window.setTimeout(onDone, 900);
+    const enterTimer = window.setTimeout(() => setEntered(true), 20);
+    const startTimer = window.setTimeout(() => setZooming(true), 350);
+    const doneTimer = window.setTimeout(onDone, 1050);
     return () => {
+      window.clearTimeout(enterTimer);
       window.clearTimeout(startTimer);
       window.clearTimeout(doneTimer);
     };
@@ -40,10 +43,12 @@ export function EntryTransition({ onDone }: { onDone: () => void }) {
       )}
     >
       <BrandMark
-        glow={false}
+        glow={entered && !zooming}
         className={cn(
           "size-24 text-4xl transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
-          zooming ? "scale-[0.35] opacity-0" : "scale-100"
+          !entered && "scale-75 opacity-0",
+          entered && !zooming && "scale-100 opacity-100",
+          zooming && "scale-[0.35] opacity-0"
         )}
       />
     </div>
