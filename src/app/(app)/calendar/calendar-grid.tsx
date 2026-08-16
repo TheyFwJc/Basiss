@@ -135,7 +135,7 @@ export function CalendarGrid({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className="grid grid-cols-8 gap-1.5">
         {WEEKDAY_LABELS.map((label) => (
           <div
             key={label}
@@ -144,52 +144,97 @@ export function CalendarGrid({
             {label}
           </div>
         ))}
-        {gridDays.map((iso) => {
-          const key = dayKey(iso);
-          const inMonth = key >= monthStartKey && key <= monthEndKey;
-          const dayTrades = tradesByDay.get(key) ?? [];
-          const netPnl = dayTrades.reduce(
+        <div className="px-1 pb-1 text-center text-xs font-medium text-muted-foreground">
+          Week
+        </div>
+
+        {Array.from({ length: gridDays.length / 7 }, (_, weekIndex) => {
+          const week = gridDays.slice(weekIndex * 7, weekIndex * 7 + 7);
+          const weekTrades = week.flatMap((iso) => tradesByDay.get(dayKey(iso)) ?? []);
+          const weekNetPnl = weekTrades.reduce(
             (sum, t) => sum + (t.netPnl ? Number(t.netPnl) : 0),
             0
           );
-          const wins = dayTrades.filter((t) => t.netPnl && Number(t.netPnl) > 0).length;
-          const hasTrades = dayTrades.length > 0;
 
           return (
-            <button
-              key={iso}
-              type="button"
-              disabled={!hasTrades}
-              onClick={() => setSelectedDay(key)}
-              className={`flex min-h-20 flex-col items-start rounded-md border p-1.5 text-left transition-colors sm:min-h-24 sm:p-2 ${
-                !inMonth
-                  ? "border-transparent opacity-40"
-                  : hasTrades
-                    ? netPnl > 0
-                      ? "border-profit/30 bg-profit-muted hover:bg-profit-muted/80"
-                      : netPnl < 0
-                        ? "border-loss/30 bg-loss-muted hover:bg-loss-muted/80"
-                        : "border-border bg-muted hover:bg-muted/80"
-                    : "border-border cursor-default"
-              }`}
-            >
-              <span className="text-xs text-muted-foreground">{Number(key.slice(8, 10))}</span>
-              {hasTrades && (
-                <>
-                  <span
-                    className={`mt-1 font-numeric text-xs font-semibold tabular-nums sm:text-sm ${
-                      netPnl > 0 ? "text-profit" : netPnl < 0 ? "text-loss" : ""
+            <div key={weekIndex} className="contents">
+              {week.map((iso) => {
+                const key = dayKey(iso);
+                const inMonth = key >= monthStartKey && key <= monthEndKey;
+                const dayTrades = tradesByDay.get(key) ?? [];
+                const netPnl = dayTrades.reduce(
+                  (sum, t) => sum + (t.netPnl ? Number(t.netPnl) : 0),
+                  0
+                );
+                const wins = dayTrades.filter((t) => t.netPnl && Number(t.netPnl) > 0).length;
+                const hasTrades = dayTrades.length > 0;
+
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    disabled={!hasTrades}
+                    onClick={() => setSelectedDay(key)}
+                    className={`flex min-h-20 flex-col items-start rounded-md border p-1.5 text-left transition-colors sm:min-h-24 sm:p-2 ${
+                      !inMonth
+                        ? "border-transparent opacity-40"
+                        : hasTrades
+                          ? netPnl > 0
+                            ? "border-profit/30 bg-profit-muted hover:bg-profit-muted/80"
+                            : netPnl < 0
+                              ? "border-loss/30 bg-loss-muted hover:bg-loss-muted/80"
+                              : "border-border bg-muted hover:bg-muted/80"
+                          : "border-border cursor-default"
                     }`}
                   >
-                    {formatCurrency(netPnl)}
-                  </span>
-                  <span className="mt-auto text-[10px] text-muted-foreground sm:text-xs">
-                    {dayTrades.length} trade{dayTrades.length === 1 ? "" : "s"} ·{" "}
-                    {Math.round((wins / dayTrades.length) * 100)}%
-                  </span>
-                </>
-              )}
-            </button>
+                    <span className="text-xs text-muted-foreground">{Number(key.slice(8, 10))}</span>
+                    {hasTrades && (
+                      <>
+                        <span
+                          className={`mt-1 font-numeric text-xs font-semibold tabular-nums sm:text-sm ${
+                            netPnl > 0 ? "text-profit" : netPnl < 0 ? "text-loss" : ""
+                          }`}
+                        >
+                          {formatCurrency(netPnl)}
+                        </span>
+                        <span className="mt-auto text-[10px] text-muted-foreground sm:text-xs">
+                          {dayTrades.length} trade{dayTrades.length === 1 ? "" : "s"} ·{" "}
+                          {Math.round((wins / dayTrades.length) * 100)}%
+                        </span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+              <div
+                className={`flex min-h-20 flex-col items-center justify-center rounded-md border border-dashed p-1.5 text-center sm:min-h-24 sm:p-2 ${
+                  weekTrades.length === 0
+                    ? "border-border/60"
+                    : weekNetPnl > 0
+                      ? "border-profit/30"
+                      : weekNetPnl < 0
+                        ? "border-loss/30"
+                        : "border-border/60"
+                }`}
+              >
+                {weekTrades.length > 0 ? (
+                  <>
+                    <span
+                      className={`font-numeric text-xs font-semibold tabular-nums sm:text-sm ${
+                        weekNetPnl > 0 ? "text-profit" : weekNetPnl < 0 ? "text-loss" : ""
+                      }`}
+                    >
+                      {formatCurrency(weekNetPnl)}
+                    </span>
+                    <span className="mt-1 text-[10px] text-muted-foreground">
+                      {weekTrades.length} trade{weekTrades.length === 1 ? "" : "s"}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </div>
+            </div>
           );
         })}
       </div>

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useState, useTransition } from "react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,7 +58,11 @@ export function AnalyticsFilters({
   const hasFilters = searchParams.toString().length > 0;
 
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="mb-6 flex flex-col gap-3 rounded-lg border border-border bg-card p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center">
+      <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <SlidersHorizontal className="size-3.5" />
+        Filters
+      </span>
       <Input
         placeholder="Search symbol…"
         value={symbol}
@@ -158,6 +163,7 @@ export function AnalyticsFilters({
       </Select>
       {hasFilters && (
         <Button type="button" variant="ghost" size="sm" onClick={() => router.push(pathname)}>
+          <X className="size-3.5" />
           Clear filters
         </Button>
       )}
