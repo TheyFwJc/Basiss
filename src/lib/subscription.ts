@@ -13,7 +13,7 @@ export type UserSubscription = SubscriptionSnapshot & {
   effectivePlan: Plan;
   billingInterval: "MONTHLY" | "YEARLY" | null;
   cancelAtPeriodEnd: boolean;
-  stripeCustomerId: string | null;
+  lemonSqueezyCustomerId: string | null;
 };
 
 const SUBSCRIPTION_SELECT = {
@@ -22,7 +22,7 @@ const SUBSCRIPTION_SELECT = {
   billingInterval: true,
   currentPeriodEnd: true,
   cancelAtPeriodEnd: true,
-  stripeCustomerId: true,
+  lemonSqueezyCustomerId: true,
 } as const;
 
 /** The single place a user's current subscription snapshot is read — every
@@ -40,7 +40,7 @@ export async function getSubscription(userId: string): Promise<UserSubscription>
     currentPeriodEnd: user.currentPeriodEnd,
     billingInterval: user.billingInterval,
     cancelAtPeriodEnd: user.cancelAtPeriodEnd,
-    stripeCustomerId: user.stripeCustomerId,
+    lemonSqueezyCustomerId: user.lemonSqueezyCustomerId,
     effectivePlan: getEffectivePlan({
       plan: user.subscriptionPlan,
       status: user.subscriptionStatus,

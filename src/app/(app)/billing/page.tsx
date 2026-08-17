@@ -78,7 +78,7 @@ export default async function BillingPage({
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
           <Clock className="size-4 shrink-0 text-muted-foreground" />
           <span className="text-muted-foreground">
-            Payment received — we&apos;re still confirming your upgrade with Stripe. This
+            Payment received — we&apos;re still confirming your upgrade. This
             usually takes a few seconds.{" "}
             <Link href="/billing" className="underline">
               Refresh

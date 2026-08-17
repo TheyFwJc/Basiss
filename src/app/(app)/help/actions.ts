@@ -42,8 +42,8 @@ Basis is a trading journal for tracking performance, risk, and psychology.
   stats and writes a plain-language performance review. Never a market call.
 - Trade screenshots: attach while logging/editing a trade or from its detail
   page; Pro feature. Stored on local disk in dev, Vercel Blob in production.
-- Subscriptions: Free (capped trades/month), Pro, and Pro+ plans via Stripe,
-  managed from /billing; /pricing shows plan comparisons.
+- Subscriptions: Free (capped trades/month), Pro, and Pro+ plans via Lemon
+  Squeezy, managed from /billing; /pricing shows plan comparisons.
 - Import/export: CSV import at /import; export everything back out as
   CSV/JSON from the Trades page. TradingView paper-trading trade history can
   be exported to CSV and imported the same way — type "TradingView" as the

@@ -50,13 +50,15 @@ feature set, only the general category of functionality was used as a reference.
   data, never a market call or a guarantee. Requires a `GEMINI_API_KEY` (see
   below); the rest of the app works fully without one.
 - Settings (profile, timezone, base currency)
-- Subscriptions & billing: Free/Pro/Pro+ plans via Stripe — pricing page
-  (`/pricing`) with monthly/yearly toggle, Stripe Checkout, a billing
+- Subscriptions & billing: Free/Pro/Pro+ plans via Lemon Squeezy — pricing
+  page (`/pricing`) with monthly/yearly toggle, hosted Checkout, a billing
   portal for managing/canceling, and centralized feature gating (trade
   screenshots, advanced analytics, advanced dashboard stats, AI Insights
   are Pro/Pro+; Free is capped at a configurable number of trades/month).
-  See "Subscriptions & billing" below for setup — the app runs fine
-  without Stripe configured, every paid feature just stays locked.
+  Lemon Squeezy is a merchant of record, so sales tax/VAT is handled
+  automatically. See "Subscriptions & billing" below for setup — the app
+  runs fine without Lemon Squeezy configured, every paid feature just
+  stays locked.
 - A demo data seed script (`npm run db:seed`) creates a `demo@basisapp.dev`
   account with realistic sample trades, kept fully separate from real user
   accounts
@@ -156,26 +158,33 @@ to later phases and why.
 
 ## Subscriptions & billing
 
-Free/Pro/Pro+ plans are wired up via Stripe, but **this is not production-ready
-out of the box** — it needs real Stripe objects and keys before checkout or
-the webhook will work. Until you set these up, `/pricing` and `/billing` show
-a "billing isn't configured yet" message rather than failing, and every user
-is simply on the Free plan.
+Free/Pro/Pro+ plans are wired up via [Lemon Squeezy](https://www.lemonsqueezy.com/),
+but **this is not production-ready out of the box** — it needs a real store,
+products, and API keys before checkout or the webhook will work. Until you
+set these up, `/pricing` and `/billing` show a "billing isn't configured yet"
+message rather than failing, and every user is simply on the Free plan.
 
-### 1. Create the Stripe objects
+Lemon Squeezy is a **merchant of record** — it collects and remits sales tax
+and VAT on your behalf in every jurisdiction, so unlike a raw payment
+processor there's no separate tax registration step to do here.
 
-In the [Stripe Dashboard](https://dashboard.stripe.com/test/products) (Test
-mode is fine to start), create one **Product** per plan, each with two
-**Prices**:
+### 1. Create a store and products
 
-| Product  | Price nickname | Billing period | Amount   |
-| -------- | --------------- | --------------- | -------- |
-| Pro      | Pro Monthly      | Monthly          | $4.99    |
-| Pro      | Pro Yearly       | Yearly           | $39.99   |
-| Pro+     | Pro+ Monthly     | Monthly          | $9.99    |
-| Pro+     | Pro+ Yearly      | Yearly           | $79.99   |
+1. Sign up at [lemonsqueezy.com](https://www.lemonsqueezy.com/) and create a
+   **Store**. Note its **Store ID** (Settings → General).
+2. Create one **Product** per plan (Pro, Pro+), each with two **Variants**
+   (a Lemon Squeezy "Variant" is the equivalent of a Stripe "Price" — a
+   specific billing period/amount under a product):
 
-After creating each Price, copy its **Price ID** (starts with `price_...`).
+   | Product | Variant name | Billing period | Amount |
+   | ------- | ------------- | --------------- | ------ |
+   | Pro     | Pro Monthly    | Monthly          | $4.99  |
+   | Pro     | Pro Yearly     | Yearly           | $39.99 |
+   | Pro+    | Pro+ Monthly   | Monthly          | $9.99  |
+   | Pro+    | Pro+ Yearly    | Yearly           | $79.99 |
+
+   After creating each Variant, copy its **Variant ID** (a plain integer,
+   visible in the variant's URL/settings in the dashboard).
 
 ### 2. Set environment variables
 
@@ -183,82 +192,60 @@ Add these to `.env` (local) and to your hosting provider's environment
 variables (production) — see `.env.example` for the full list with comments:
 
 ```
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRO_MONTHLY_PRICE_ID=price_...
-STRIPE_PRO_YEARLY_PRICE_ID=price_...
-STRIPE_PRO_PLUS_MONTHLY_PRICE_ID=price_...
-STRIPE_PRO_PLUS_YEARLY_PRICE_ID=price_...
+LEMONSQUEEZY_API_KEY=...
+LEMONSQUEEZY_STORE_ID=...
+LEMONSQUEEZY_WEBHOOK_SECRET=...
+LEMONSQUEEZY_PRO_MONTHLY_VARIANT_ID=...
+LEMONSQUEEZY_PRO_YEARLY_VARIANT_ID=...
+LEMONSQUEEZY_PRO_PLUS_MONTHLY_VARIANT_ID=...
+LEMONSQUEEZY_PRO_PLUS_YEARLY_VARIANT_ID=...
 ```
 
-`STRIPE_SECRET_KEY` and `STRIPE_PUBLISHABLE_KEY` are on the
-[API keys](https://dashboard.stripe.com/test/apikeys) page.
+`LEMONSQUEEZY_API_KEY` is created under Settings → API.
 
 ### 3. Configure the webhook
 
-The webhook endpoint is `/api/stripe/webhook` and needs `STRIPE_WEBHOOK_SECRET`
-to verify Stripe's signature — **the database is only ever updated through
-this endpoint**, never from the client returning from checkout.
+The webhook endpoint is `/api/lemonsqueezy/webhook` and needs
+`LEMONSQUEEZY_WEBHOOK_SECRET` to verify its signature (an HMAC-SHA256 of the
+raw body, checked against the `X-Signature` header) — **the database is only
+ever updated through this endpoint**, never from the client returning from
+checkout.
 
-- **Local testing:** install the [Stripe CLI](https://docs.stripe.com/stripe-cli),
-  then run:
-  ```bash
-  stripe login
-  stripe listen --forward-to localhost:3000/api/stripe/webhook
-  ```
-  This prints a `whsec_...` value — put that in your local `.env` as
-  `STRIPE_WEBHOOK_SECRET`.
-- **Production:** in the Stripe Dashboard, go to
-  [Developers → Webhooks](https://dashboard.stripe.com/test/webhooks) → **Add
-  endpoint** → URL `https://your-domain.com/api/stripe/webhook` → select these
-  events:
-  - `checkout.session.completed`
-  - `customer.subscription.created`
-  - `customer.subscription.updated`
-  - `customer.subscription.deleted`
-  - `invoice.paid`
-  - `invoice.payment_failed`
+In the Lemon Squeezy Dashboard, go to Settings → Webhooks → **+** → enter
+your endpoint URL (`https://your-domain.com/api/lemonsqueezy/webhook`, or a
+tunnel like [ngrok](https://ngrok.com)/ [Stripe-CLI-style forwarders don't
+apply here] for local testing) → set a **signing secret** (any string,
+6–40 characters — this is what you put in `LEMONSQUEEZY_WEBHOOK_SECRET`) →
+select these events:
 
-  Copy the endpoint's **Signing secret** into `STRIPE_WEBHOOK_SECRET` on your
-  hosting provider.
+- `subscription_created`
+- `subscription_updated`
+- `subscription_cancelled`
+- `subscription_resumed`
+- `subscription_expired`
+- `subscription_paused`
+- `subscription_unpaused`
+- `subscription_payment_success`
+- `subscription_payment_failed`
+- `subscription_payment_recovered`
 
-### 4. Enable Stripe Tax
+### 4. Test it end to end (Lemon Squeezy test mode)
 
-Checkout (`createCheckoutSessionAction`) requests automatic tax calculation
-and VAT/tax ID collection on every session — **Stripe Tax must be turned on
-for your account, in both test and live mode, or Checkout session creation
-will fail outright** (not just show wrong tax).
-
-1. In the Stripe Dashboard, go to
-   [Tax Settings](https://dashboard.stripe.com/test/settings/tax) → **Set up
-   Stripe Tax** → set your **origin address** (where the business is based).
-2. Add at least one **tax registration** for a region you expect customers
-   from (e.g. your home state/country) — Stripe only calculates tax for
-   regions you've registered in; unregistered regions are simply charged
-   $0 tax, not an error.
-3. Repeat in **live mode** before going to production — test mode and live
-   mode have independent Tax settings.
-
-If you'd rather ship without this, remove `automatic_tax`,
-`billing_address_collection`, and `tax_id_collection` from the Checkout
-session options in `src/app/(app)/pricing/actions.ts` — Checkout then behaves
-as before (no tax calculation, no address requirement).
-
-### 5. Test it end to end (Stripe test mode)
-
-With `stripe listen` running locally (step 3) and `npm run dev` running:
+Enable **Test mode** (toggle in the dashboard) before testing — it uses the
+same webhook and API key, just flagged `test_mode: true` on every object.
 
 1. Sign up/log in, go to `/pricing`, click **Upgrade to Pro**.
-2. On Stripe's Checkout page, use a
-   [test card](https://docs.stripe.com/testing#cards) — `4242 4242 4242 4242`,
-   any future expiry, any CVC, any ZIP.
+2. On the Lemon Squeezy Checkout page, use a
+   [test card](https://docs.lemonsqueezy.com/help/getting-started/test-mode) —
+   `4242 4242 4242 4242`, any future expiry, any CVC.
 3. You should land back on `/billing` and, within a few seconds (once the
    webhook fires), see the Pro plan reflected.
-4. To test a failed payment, use the decline test card `4000 0000 0000 0002`.
-5. To test cancellation, go to `/billing` → **Manage Billing** → cancel in the
-   Stripe portal → confirm the app still shows Pro access until the period end
-   date, per the webhook update.
+4. To test cancellation, go to `/billing` → **Manage Billing** → cancel in
+   the Lemon Squeezy portal → confirm the app still shows Pro access until
+   the period end date, per the webhook update.
+5. Use the subscription's "Simulate event" option (in test mode) to trigger
+   `subscription_payment_failed`/`subscription_expired` without waiting for
+   real renewal dates.
 
 ### Changing the free trade limit
 

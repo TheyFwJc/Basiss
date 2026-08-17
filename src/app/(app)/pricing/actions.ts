@@ -3,12 +3,13 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import {
-  getStripeClient,
-  isStripeConfigured,
-  resolvePriceId,
-  getOrCreateStripeCustomer,
+  isLemonSqueezyConfigured,
+  resolveVariantId,
+  createCheckout,
+  getSubscription,
+  updateSubscriptionVariant,
   type PaidPlan,
-} from "@/lib/stripe";
+} from "@/lib/lemonsqueezy";
 import type { BillingInterval } from "@/generated/prisma/enums";
 
 async function requireUserId() {
@@ -24,8 +25,8 @@ function baseUrl() {
 }
 
 /**
- * Creates a Stripe Checkout session for the given plan/interval. The plan
- * and interval are only ever used to look up a real Price ID server-side —
+ * Creates a Lemon Squeezy Checkout for the given plan/interval. The plan and
+ * interval are only ever used to look up a real Variant ID server-side —
  * the client never supplies (or can influence) an actual price.
  */
 export async function createCheckoutSessionAction(
@@ -34,9 +35,9 @@ export async function createCheckoutSessionAction(
 ): Promise<BillingActionResult> {
   const userId = await requireUserId();
 
-  if (!isStripeConfigured()) {
+  if (!isLemonSqueezyConfigured()) {
     return {
-      error: "Billing isn't configured yet — add STRIPE_SECRET_KEY to the server's environment.",
+      error: "Billing isn't configured yet — add LEMONSQUEEZY_API_KEY and LEMONSQUEEZY_STORE_ID to the server's environment.",
     };
   }
 
@@ -49,43 +50,24 @@ export async function createCheckoutSessionAction(
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { id: true, email: true, name: true, stripeCustomerId: true },
+    select: { id: true, email: true },
   });
 
-  let priceId: string;
+  let variantId: string;
   try {
-    priceId = resolvePriceId(plan as PaidPlan, interval as BillingInterval);
+    variantId = resolveVariantId(plan as PaidPlan, interval as BillingInterval);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Billing is misconfigured." };
   }
 
   try {
-    const customerId = await getOrCreateStripeCustomer(user);
-    const stripe = getStripeClient();
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${baseUrl()}/billing?checkout=success`,
-      cancel_url: `${baseUrl()}/pricing?checkout=canceled`,
-      subscription_data: { metadata: { userId } },
-      metadata: { userId },
-      allow_promotion_codes: true,
-      // Requires Stripe Tax to be enabled (with an origin address set) in
-      // the Stripe Dashboard for this account — test mode included — or
-      // Checkout session creation fails. See README.md's "Subscriptions &
-      // billing" section. Enabling automatic_tax on the Checkout Session
-      // carries through to the subscription it creates, so later invoices
-      // (including plan/interval changes via changePlanAction) keep
-      // calculating tax automatically without re-enabling it.
-      automatic_tax: { enabled: true },
-      billing_address_collection: "required",
-      tax_id_collection: { enabled: true },
+    const { url } = await createCheckout({
+      variantId,
+      userId,
+      email: user.email,
+      redirectUrl: `${baseUrl()}/billing?checkout=success`,
     });
-
-    if (!session.url) return { error: "Stripe didn't return a checkout URL. Please try again." };
-    return { url: session.url };
+    return { url };
   } catch (error) {
     console.error("createCheckoutSessionAction failed:", error);
     return { error: "Couldn't start checkout. Please try again in a moment." };
@@ -94,9 +76,9 @@ export async function createCheckoutSessionAction(
 
 /**
  * Switches an existing paid subscriber directly to a different plan/interval
- * by updating their existing Stripe subscription in place (never creates a
- * second concurrent subscription). Used for Pro -> Pro+ upgrades and
- * monthly <-> yearly switches on the same plan.
+ * by updating their existing Lemon Squeezy subscription in place (never
+ * creates a second concurrent subscription). Used for Pro -> Pro+ upgrades
+ * and monthly <-> yearly switches on the same plan.
  */
 export async function changePlanAction(
   plan: string,
@@ -104,9 +86,9 @@ export async function changePlanAction(
 ): Promise<BillingActionResult> {
   const userId = await requireUserId();
 
-  if (!isStripeConfigured()) {
+  if (!isLemonSqueezyConfigured()) {
     return {
-      error: "Billing isn't configured yet — add STRIPE_SECRET_KEY to the server's environment.",
+      error: "Billing isn't configured yet — add LEMONSQUEEZY_API_KEY and LEMONSQUEEZY_STORE_ID to the server's environment.",
     };
   }
   if (plan !== "PRO" && plan !== "PRO_PLUS") {
@@ -118,30 +100,21 @@ export async function changePlanAction(
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { stripeSubscriptionId: true },
+    select: { lemonSqueezySubscriptionId: true },
   });
-  if (!user.stripeSubscriptionId) {
+  if (!user.lemonSqueezySubscriptionId) {
     return { error: "You don't have an active subscription to change yet." };
   }
 
-  let priceId: string;
+  let variantId: string;
   try {
-    priceId = resolvePriceId(plan as PaidPlan, interval as BillingInterval);
+    variantId = resolveVariantId(plan as PaidPlan, interval as BillingInterval);
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Billing is misconfigured." };
   }
 
   try {
-    const stripe = getStripeClient();
-    const subscription = await stripe.subscriptions.retrieve(user.stripeSubscriptionId);
-    const itemId = subscription.items.data[0]?.id;
-    if (!itemId) return { error: "Couldn't find your subscription details. Please try again." };
-
-    await stripe.subscriptions.update(user.stripeSubscriptionId, {
-      items: [{ id: itemId, price: priceId }],
-      proration_behavior: "create_prorations",
-    });
-
+    await updateSubscriptionVariant(user.lemonSqueezySubscriptionId, variantId);
     return { url: `${baseUrl()}/billing?checkout=success` };
   } catch (error) {
     console.error("changePlanAction failed:", error);
@@ -149,33 +122,33 @@ export async function changePlanAction(
   }
 }
 
-/** Creates a Stripe Billing Portal session so the user can manage payment
- * method, invoices, and cancellation directly through Stripe. */
+/** Returns Lemon Squeezy's hosted customer portal URL for the user's
+ * subscription, so they can manage payment method, invoices, and
+ * cancellation directly through Lemon Squeezy. Unlike Stripe, there's no
+ * separate "create a portal session" call — the portal URL is a signed URL
+ * on the subscription object itself, refreshed on every fetch since it
+ * expires after 24h. */
 export async function createPortalSessionAction(): Promise<BillingActionResult> {
   const userId = await requireUserId();
 
-  if (!isStripeConfigured()) {
+  if (!isLemonSqueezyConfigured()) {
     return {
-      error: "Billing isn't configured yet — add STRIPE_SECRET_KEY to the server's environment.",
+      error: "Billing isn't configured yet — add LEMONSQUEEZY_API_KEY and LEMONSQUEEZY_STORE_ID to the server's environment.",
     };
   }
 
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { stripeCustomerId: true },
+    select: { lemonSqueezySubscriptionId: true },
   });
 
-  if (!user.stripeCustomerId) {
+  if (!user.lemonSqueezySubscriptionId) {
     return { error: "You don't have a billing account yet — subscribe to a plan first." };
   }
 
   try {
-    const stripe = getStripeClient();
-    const session = await stripe.billingPortal.sessions.create({
-      customer: user.stripeCustomerId,
-      return_url: `${baseUrl()}/billing`,
-    });
-    return { url: session.url };
+    const subscription = await getSubscription(user.lemonSqueezySubscriptionId);
+    return { url: subscription.attributes.urls.customer_portal };
   } catch (error) {
     console.error("createPortalSessionAction failed:", error);
     return { error: "Couldn't open the billing portal. Please try again in a moment." };

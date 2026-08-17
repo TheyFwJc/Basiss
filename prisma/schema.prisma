@@ -43,11 +43,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Billing — Stripe is the source of truth; these fields are a cache kept
-  // in sync by the webhook handler (src/app/api/stripe/webhook/route.ts).
+  // Billing — Lemon Squeezy is the source of truth; these fields are a cache
+  // kept in sync by the webhook handler (src/app/api/lemonsqueezy/webhook/route.ts).
   // Never trust client-supplied plan/status — always read these columns.
-  stripeCustomerId       String?             @unique
-  stripeSubscriptionId   String?             @unique
+  lemonSqueezyCustomerId     String?             @unique
+  lemonSqueezySubscriptionId String?             @unique
   subscriptionPlan       SubscriptionPlan    @default(FREE)
   subscriptionStatus     SubscriptionStatus  @default(FREE)
   billingInterval        BillingInterval?
@@ -84,10 +84,13 @@ model User {
   suggestions         Suggestion[]
 }
 
-/** Records processed Stripe webhook event IDs so a redelivered/duplicate
- * event is a no-op instead of double-applying (e.g. double-extending a
- * billing period). The primary key IS the Stripe event ID. */
-model StripeWebhookEvent {
+/** Dedupes processed Lemon Squeezy webhook deliveries so a redelivered/
+ * duplicate event is a no-op instead of double-applying (e.g. double-
+ * extending a billing period). Unlike Stripe, Lemon Squeezy webhook payloads
+ * don't carry a stable per-event ID, so the primary key is a hash of
+ * (event name + raw body) computed in the webhook handler — same pattern as
+ * TradingViewWebhookEvent. */
+model LemonSqueezyWebhookEvent {
   id        String   @id
   type      String
   createdAt DateTime @default(now())
