@@ -13,7 +13,7 @@ export function EmptyState({
 }) {
   return (
     <div className="animate-fade-in-up flex flex-col items-center justify-center rounded-lg border border-dashed border-border px-6 py-16 text-center">
-      <div className="bg-brand-soft mb-4 flex size-12 items-center justify-center rounded-full">
+      <div className="animate-float bg-brand-soft border-glow mb-4 flex size-12 items-center justify-center rounded-full">
         <Icon className="text-primary size-6" strokeWidth={1.75} />
       </div>
       <h3 className="text-sm font-medium">{title}</h3>

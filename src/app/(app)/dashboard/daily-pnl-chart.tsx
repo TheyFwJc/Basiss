@@ -74,6 +74,13 @@ export function DailyPnlChart({
             <stop offset="0%" stopColor="var(--color-loss)" stopOpacity={0.35} />
             <stop offset="100%" stopColor="var(--color-loss)" stopOpacity={0.03} />
           </linearGradient>
+          <filter id="pnlGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         <CartesianGrid stroke="var(--color-border)" vertical={false} />
         <XAxis
@@ -99,7 +106,10 @@ export function DailyPnlChart({
           stroke="var(--color-profit)"
           strokeWidth={2}
           fill="url(#gainFill)"
+          filter="url(#pnlGlow)"
           activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--color-background)" }}
+          animationDuration={1100}
+          animationEasing="ease-out"
         />
         <Area
           type="monotone"
@@ -107,7 +117,10 @@ export function DailyPnlChart({
           stroke="var(--color-loss)"
           strokeWidth={2}
           fill="url(#lossFill)"
+          filter="url(#pnlGlow)"
           activeDot={{ r: 4, strokeWidth: 2, stroke: "var(--color-background)" }}
+          animationDuration={1100}
+          animationEasing="ease-out"
         />
       </AreaChart>
     </ResponsiveContainer>

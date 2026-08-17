@@ -15,6 +15,10 @@ import {
   ArrowDownRight,
   Gauge,
   TrendingDown,
+  TrendingUp,
+  Activity,
+  History,
+  type LucideIcon,
 } from "lucide-react";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
@@ -45,6 +49,17 @@ import { DailyPnlChart } from "./daily-pnl-chart";
 
 function dateKey(d: Date) {
   return d.toISOString().slice(0, 10);
+}
+
+function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <CardTitle className="flex items-center gap-2 text-base">
+      <span className="bg-brand-soft flex size-6 shrink-0 items-center justify-center rounded-md text-primary">
+        <Icon className="size-3.5" strokeWidth={2.25} />
+      </span>
+      {children}
+    </CardTitle>
+  );
 }
 
 export default async function DashboardPage() {
@@ -159,10 +174,23 @@ export default async function DashboardPage() {
         <div className="animate-fade-in-up relative mb-6 overflow-hidden rounded-xl border border-border bg-brand-gradient p-6 text-white shadow-lg sm:p-8">
           <div
             aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.15]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)",
+              backgroundSize: "22px 22px",
+            }}
+          />
+          <div
+            aria-hidden
             className="animate-glow-pulse pointer-events-none absolute -top-16 -right-16 size-56 rounded-full bg-white/20 blur-3xl"
           />
+          <div
+            aria-hidden
+            className="animate-drift pointer-events-none absolute -bottom-20 -left-10 size-48 rounded-full bg-white/10 blur-3xl"
+          />
           <p className="relative text-sm font-medium text-white/80">Total P&amp;L, all-time</p>
-          <p className="relative mt-1 font-numeric text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+          <p className="animate-pop-in relative mt-1 font-numeric text-5xl font-bold tracking-tight tabular-nums sm:text-6xl">
             <AnimatedNumber value={profit.netPnl.toNumber()} format="currency" />
           </p>
           <div className="relative mt-4 flex flex-wrap items-center gap-2">
@@ -207,7 +235,7 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Your accounts</CardTitle>
+              <SectionTitle icon={Wallet}>Your accounts</SectionTitle>
               <Button
                 render={
                   <Link href="/accounts">
@@ -429,7 +457,7 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Equity curve</CardTitle>
+                    <SectionTitle icon={TrendingUp}>Equity curve</SectionTitle>
                   </CardHeader>
                   <CardContent>
                     <EquityCurveChart data={equityCurveData} />
@@ -437,7 +465,7 @@ export default async function DashboardPage() {
                 </Card>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Daily P&L</CardTitle>
+                    <SectionTitle icon={Activity}>Daily P&L</SectionTitle>
                   </CardHeader>
                   <CardContent>
                     {dailyPnlData.length === 0 ? (
@@ -454,7 +482,7 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <Card className="lg:col-span-2">
                   <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-base">Recent trades</CardTitle>
+                    <SectionTitle icon={History}>Recent trades</SectionTitle>
                     <Button
                       render={
                         <Link href="/trades">
@@ -505,7 +533,7 @@ export default async function DashboardPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Streaks</CardTitle>
+                    <SectionTitle icon={Flame}>Streaks</SectionTitle>
                   </CardHeader>
                   <CardContent className="flex flex-col gap-3">
                     <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
@@ -543,7 +571,7 @@ export default async function DashboardPage() {
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Best trade</CardTitle>
+                      <SectionTitle icon={ArrowUpRight}>Best trade</SectionTitle>
                     </CardHeader>
                     <CardContent>
                       {bestTrade ? (
@@ -574,7 +602,7 @@ export default async function DashboardPage() {
                   </Card>
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Worst trade</CardTitle>
+                      <SectionTitle icon={ArrowDownRight}>Worst trade</SectionTitle>
                     </CardHeader>
                     <CardContent>
                       {worstTrade ? (
@@ -614,7 +642,7 @@ export default async function DashboardPage() {
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Best setups</CardTitle>
+                      <SectionTitle icon={Target}>Best setups</SectionTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-2">
                       {bestSetups.map((s) => (
@@ -637,7 +665,7 @@ export default async function DashboardPage() {
                   </Card>
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Worst setups</CardTitle>
+                      <SectionTitle icon={TrendingDown}>Worst setups</SectionTitle>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-2">
                       {worstSetups.length === 0 ? (

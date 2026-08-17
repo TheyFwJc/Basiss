@@ -28,6 +28,13 @@ export function EquityCurveChart({
             <stop offset="0%" stopColor="var(--brand-from)" />
             <stop offset="100%" stopColor="var(--brand-to)" />
           </linearGradient>
+          <filter id="equityGlow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         <CartesianGrid stroke="var(--color-border)" vertical={false} />
         <XAxis
@@ -61,7 +68,10 @@ export function EquityCurveChart({
           stroke="url(#equityStroke)"
           strokeWidth={2.5}
           fill="url(#equityFill)"
+          filter="url(#equityGlow)"
           activeDot={{ r: 5, strokeWidth: 2, stroke: "var(--color-background)" }}
+          animationDuration={1100}
+          animationEasing="ease-out"
         />
       </AreaChart>
     </ResponsiveContainer>
