@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { POPULAR_SYMBOLS } from "@/lib/symbols";
+import { symbolSuggestionsFor } from "@/lib/symbols";
 import { lookupFuturesPointValue } from "@/lib/futures-contracts";
 import type { TradeInput } from "@/lib/validations/trade";
 import { createTradeAction, updateTradeAction } from "./actions";
@@ -279,10 +279,6 @@ export function TradeForm({
   canUploadScreenshots: boolean;
   existingScreenshots?: TradeScreenshot[];
 }) {
-  const symbolSuggestions = [
-    ...recentSymbols,
-    ...POPULAR_SYMBOLS.filter((s) => !recentSymbols.includes(s)),
-  ];
   const router = useRouter();
   const isEdit = !!defaults;
   const [pending, startTransition] = useTransition();
@@ -313,6 +309,11 @@ export function TradeForm({
   // Once the user (or a loaded trade) has an explicit multiplier, stop
   // overwriting it with the symbol-based auto-suggestion.
   const [multiplierTouched, setMultiplierTouched] = useState(isEdit);
+
+  const symbolSuggestions = [
+    ...recentSymbols,
+    ...symbolSuggestionsFor(assetClass).filter((s) => !recentSymbols.includes(s)),
+  ];
 
   function handleSymbolChange(value: string) {
     const upper = value.toUpperCase();

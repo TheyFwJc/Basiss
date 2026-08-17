@@ -1,11 +1,15 @@
+import { FUTURES_SYMBOLS } from "./futures-contracts";
+import type { AssetClass } from "./import";
+
 /**
- * A static, bundled list of well-known US stock/ETF tickers used only to
- * populate the Symbol suggestion dropdown on the trade form. Not a live
- * market-data feed (this app has none — see ARCHITECTURE.md's Phase 7
- * notes) and not authoritative; it's a convenience list, and the field
- * always accepts any typed symbol regardless of whether it's on here.
+ * Static, bundled ticker lists used only to populate the Symbol suggestion
+ * dropdown on the trade form — one list per asset class, so picking Futures
+ * shows futures roots instead of stock tickers, and so on. Not a live
+ * market-data feed (this app has none — see ARCHITECTURE.md's Phase 7 notes)
+ * and not authoritative; convenience lists only — the field always accepts
+ * any typed symbol regardless of whether it's on here.
  */
-export const POPULAR_SYMBOLS: string[] = [
+export const POPULAR_EQUITY_SYMBOLS: string[] = [
   // Mega-cap tech
   "AAPL", "MSFT", "GOOGL", "GOOG", "AMZN", "META", "NVDA", "TSLA", "AVGO", "ORCL",
   "CRM", "ADBE", "NFLX", "AMD", "INTC", "CSCO", "QCOM", "TXN", "IBM", "NOW",
@@ -63,3 +67,43 @@ export const POPULAR_SYMBOLS: string[] = [
   // International
   "EFA", "EEM", "FXI", "EWJ", "EWZ", "INDA",
 ];
+
+export const POPULAR_FOREX_SYMBOLS: string[] = [
+  // Majors
+  "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+
+  // Crosses
+  "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "AUDJPY", "CHFJPY", "NZDJPY", "EURAUD", "GBPAUD",
+
+  // Other
+  "USDCNH", "USDMXN", "USDZAR", "USDSEK", "USDNOK", "USDTRY",
+];
+
+export const POPULAR_CRYPTO_SYMBOLS: string[] = [
+  // Large-cap
+  "BTC", "ETH", "SOL", "BNB", "XRP",
+
+  // Mid-cap
+  "ADA", "DOGE", "AVAX", "LINK", "MATIC", "LTC", "DOT", "ATOM", "UNI", "TRX",
+
+  // Other notables
+  "SHIB", "NEAR", "APT", "ARB", "OP",
+];
+
+export { FUTURES_SYMBOLS };
+
+/** Which suggestion list to show in the Symbol field for a given asset class. */
+export function symbolSuggestionsFor(assetClass: AssetClass | string): string[] {
+  switch (assetClass) {
+    case "FUTURES":
+      return FUTURES_SYMBOLS;
+    case "FOREX":
+      return POPULAR_FOREX_SYMBOLS;
+    case "CRYPTO":
+      return POPULAR_CRYPTO_SYMBOLS;
+    case "EQUITY":
+    case "OPTION":
+    default:
+      return POPULAR_EQUITY_SYMBOLS;
+  }
+}
