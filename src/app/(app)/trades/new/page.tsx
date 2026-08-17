@@ -6,15 +6,23 @@ import { EmptyState } from "@/components/empty-state";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { Button } from "@/components/ui/button";
 import { Wallet } from "lucide-react";
-import { canAddTrade } from "@/lib/subscription";
+import { canAddTrade, canUseFeature } from "@/lib/subscription";
 import { TradeForm } from "../trade-form";
 
 export default async function NewTradePage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [accounts, strategies, playbooks, mistakes, checklists, recentTrades, tradeLimit] =
-    await Promise.all([
+  const [
+    accounts,
+    strategies,
+    playbooks,
+    mistakes,
+    checklists,
+    recentTrades,
+    tradeLimit,
+    canUploadScreenshots,
+  ] = await Promise.all([
       db.tradingAccount.findMany({
         where: { userId },
         orderBy: { createdAt: "asc" },
@@ -48,6 +56,7 @@ export default async function NewTradePage() {
         take: 8,
       }),
       canAddTrade(userId),
+      canUseFeature(userId, "SCREENSHOTS"),
     ]);
   const recentSymbols = recentTrades.map((t) => t.symbol);
 
@@ -93,6 +102,7 @@ export default async function NewTradePage() {
         mistakes={mistakes}
         checklists={checklists}
         recentSymbols={recentSymbols}
+        canUploadScreenshots={canUploadScreenshots}
       />
     </div>
   );

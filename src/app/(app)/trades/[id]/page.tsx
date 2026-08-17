@@ -200,6 +200,12 @@ export default async function TradeDetailPage({
                   : "—"
               }
             />
+            {Number(trade.contractMultiplier) !== 1 && (
+              <StatRow
+                label="Contract multiplier"
+                value={`$${trade.contractMultiplier.toString()}/point`}
+              />
+            )}
             <StatRow
               label="Stop loss"
               value={

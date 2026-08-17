@@ -27,12 +27,13 @@ async function buildTradeWriteData(userId: string, input: TradeInput) {
   });
   if (!account) throw new Error("Trading account not found.");
 
-  const pnl = computeTradePnl(input.direction, input.executions);
+  const pnl = computeTradePnl(input.direction, input.executions, input.contractMultiplier);
   const riskAmount = computeRiskAmount(
     input.direction,
     pnl.avgEntryPrice,
     input.stopLoss,
-    pnl.quantity
+    pnl.quantity,
+    input.contractMultiplier
   );
   // Approximated against the account's starting balance — real running
   // equity tracking arrives with EquitySnapshot in a later phase.
@@ -60,6 +61,7 @@ async function buildTradeWriteData(userId: string, input: TradeInput) {
     assetClass: input.assetClass,
     direction: input.direction,
     status: pnl.status,
+    contractMultiplier: input.contractMultiplier.toString(),
     quantity: pnl.quantity.toString(),
     avgEntryPrice: pnl.avgEntryPrice.toString(),
     avgExitPrice: pnl.avgExitPrice?.toString() ?? null,

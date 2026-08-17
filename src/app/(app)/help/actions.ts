@@ -40,8 +40,8 @@ Basis is a trading journal for tracking performance, risk, and psychology.
 - Daily Journal: a plan-before/review-after entry per calendar day.
 - Insights (/insights): a Pro+ feature — AI reviews the user's own aggregated
   stats and writes a plain-language performance review. Never a market call.
-- Trade screenshots: attached from a trade's detail page; Pro feature, needs
-  storage configured on the server (Vercel Blob) or it shows "not configured".
+- Trade screenshots: attach while logging/editing a trade or from its detail
+  page; Pro feature. Stored on local disk in dev, Vercel Blob in production.
 - Subscriptions: Free (capped trades/month), Pro, and Pro+ plans via Stripe,
   managed from /billing; /pricing shows plan comparisons.
 - Import/export: CSV import at /import; export everything back out as

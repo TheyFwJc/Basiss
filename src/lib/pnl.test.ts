@@ -134,6 +134,41 @@ describe("computeTradePnl — validation", () => {
   });
 });
 
+describe("computeTradePnl — contract multiplier", () => {
+  it("defaults to a multiplier of 1 (shares/units-style instruments)", () => {
+    const result = computeTradePnl("LONG", [
+      { side: "BUY", quantity: 1, price: 20000 },
+      { side: "SELL", quantity: 1, price: 20010 },
+    ]);
+    expect(result.grossPnl?.toString()).toBe("10");
+  });
+
+  it("scales gross/net P&L by the contract multiplier (Micro Nasdaq, $2/point)", () => {
+    const result = computeTradePnl(
+      "LONG",
+      [
+        { side: "BUY", quantity: 1, price: 20000, commission: 1 },
+        { side: "SELL", quantity: 1, price: 20010 },
+      ],
+      2
+    );
+    expect(result.grossPnl?.toString()).toBe("20"); // (20010-20000)*1*2
+    expect(result.netPnl?.toString()).toBe("19");
+  });
+
+  it("scales a short futures trade's P&L by the multiplier too", () => {
+    const result = computeTradePnl(
+      "SHORT",
+      [
+        { side: "SELL", quantity: 3, price: 20000 },
+        { side: "BUY", quantity: 3, price: 19990 },
+      ],
+      2
+    );
+    expect(result.grossPnl?.toString()).toBe("60"); // (20000-19990)*3*2
+  });
+});
+
 describe("computeRiskAmount", () => {
   it("computes risk for a long trade", () => {
     const risk = computeRiskAmount("LONG", 100, 95, 10);
@@ -147,6 +182,11 @@ describe("computeRiskAmount", () => {
 
   it("returns null when there is no stop loss", () => {
     expect(computeRiskAmount("LONG", 100, null, 10)).toBeNull();
+  });
+
+  it("scales risk by the contract multiplier", () => {
+    const risk = computeRiskAmount("LONG", 20000, 19990, 1, 2);
+    expect(risk?.toString()).toBe("20"); // (20000-19990)*1*2
   });
 });
 

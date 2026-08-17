@@ -191,10 +191,10 @@ const SECTIONS: Section[] = [
     icon: ImagePlus,
     body: (
       <p>
-        Attach chart screenshots to a trade from its detail page. This needs a
-        storage connection (Vercel Blob) set up on the server — if you see a
-        &quot;storage isn&apos;t configured&quot; message, that step hasn&apos;t been
-        done yet.
+        Attach chart screenshots to a trade — either while logging/editing it
+        or from its detail page afterward. It&apos;s a Pro feature. Storage works
+        out of the box in development (saved to local disk); production
+        deployments should connect a Vercel Blob store for durable storage.
       </p>
     ),
   },

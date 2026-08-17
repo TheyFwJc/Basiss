@@ -46,7 +46,12 @@ function entrySideFor(direction: TradeDirection): ExecutionSide {
  */
 export function computeTradePnl(
   direction: TradeDirection,
-  executions: ExecutionInput[]
+  executions: ExecutionInput[],
+  /** Dollars of P&L per 1.00 price move, per unit of quantity — 1 for
+   * shares/units-style instruments (equities, forex, crypto), and the
+   * contract's point value for futures (e.g. 2 for a Micro Nasdaq/MNQ
+   * contract). See src/lib/futures-contracts.ts for common defaults. */
+  contractMultiplier: Decimal.Value = 1
 ): TradePnl {
   if (executions.length === 0) {
     throw new Error("A trade must have at least one execution.");
@@ -93,10 +98,11 @@ export function computeTradePnl(
   let grossPnl: Decimal | null = null;
   let netPnl: Decimal | null = null;
   if (avgExitPrice) {
-    grossPnl =
+    const priceMove =
       direction === "LONG"
-        ? avgExitPrice.minus(avgEntryPrice).times(exitQty)
-        : avgEntryPrice.minus(avgExitPrice).times(exitQty);
+        ? avgExitPrice.minus(avgEntryPrice)
+        : avgEntryPrice.minus(avgExitPrice);
+    grossPnl = priceMove.times(exitQty).times(contractMultiplier);
     netPnl = grossPnl.minus(fees).minus(commission);
   }
 
@@ -121,14 +127,15 @@ export function computeRiskAmount(
   direction: TradeDirection,
   avgEntryPrice: Decimal.Value,
   stopLoss: Decimal.Value | null | undefined,
-  quantity: Decimal.Value
+  quantity: Decimal.Value,
+  contractMultiplier: Decimal.Value = 1
 ): Decimal | null {
   if (stopLoss == null) return null;
   const entry = new Decimal(avgEntryPrice);
   const stop = new Decimal(stopLoss);
   const qty = new Decimal(quantity);
   const distance = direction === "LONG" ? entry.minus(stop) : stop.minus(entry);
-  return distance.abs().times(qty);
+  return distance.abs().times(qty).times(contractMultiplier);
 }
 
 /** R-multiple: net P&L expressed as a multiple of dollar risk. */

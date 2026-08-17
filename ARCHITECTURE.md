@@ -177,13 +177,19 @@ across symbols, strategies, sessions, and days, so Dashboard/Calendar/
 Analytics have something to render. It only ever touches that one email; it
 never runs against or mixes with a real user's data.
 
-## File storage (Phase 2+)
+## File storage
 
-Not built yet. `Screenshot.url` is a plain string field so the storage backend
-(local disk in dev, S3-compatible storage in production) can be swapped without
-a schema change. Access control will be enforced the same way as everything
-else — ownership check in the query, signed/short-lived URLs for anything not
-served through the app itself.
+Trade screenshots (`Screenshot.url`, a plain string field so the backend can
+be swapped without a schema change): `src/lib/storage.ts` writes to local disk
+under `public/uploads/screenshots/<userId>/` (served by Next directly at
+`/uploads/screenshots/...`) when `BLOB_READ_WRITE_TOKEN` isn't set, and to
+Vercel Blob (`@vercel/blob`) when it is — local disk covers dev and
+single-server deploys for free; Blob is for serverless hosting where the
+filesystem isn't persistent. `src/app/(app)/trades/[id]/screenshot-actions.ts`
+enforces ownership (the trade must belong to the requesting user) and the
+`SCREENSHOTS` Pro feature gate before every upload/delete. Attach screenshots
+either while logging/editing a trade (`trade-form.tsx`) or from its detail
+page (`screenshot-gallery.tsx`) — same actions either way.
 
 ## Import system (Phase 5)
 

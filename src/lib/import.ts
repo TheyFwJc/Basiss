@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { computeTradePnl, type TradePnl } from "./pnl";
+import { lookupFuturesPointValue } from "./futures-contracts";
 import type { ColumnMapping } from "./validations/import";
 
 /**
@@ -301,6 +302,9 @@ export type TradeGroup = {
   entryAt: Date;
   exitAt: Date | null;
   pnl: TradePnl;
+  /** Dollars of P&L per 1.00 price move, per unit of quantity — looked up
+   * from the symbol for FUTURES rows (see futures-contracts.ts), 1 otherwise. */
+  contractMultiplier: number;
   /** rowIndexes of source rows that were split across two trades by a direction flip. */
   splitRowIndexes: number[];
 };
@@ -319,6 +323,8 @@ function finalizeGroup(
   const entrySide = entrySideFor(direction);
   const entryTimes = executions.filter((e) => e.side === entrySide).map((e) => e.executedAt.getTime());
   const exitTimes = executions.filter((e) => e.side !== entrySide).map((e) => e.executedAt.getTime());
+  const contractMultiplier =
+    assetClass === "FUTURES" ? lookupFuturesPointValue(symbol) ?? 1 : 1;
 
   return {
     symbol,
@@ -327,7 +333,8 @@ function finalizeGroup(
     executions,
     entryAt: new Date(Math.min(...entryTimes)),
     exitAt: exitTimes.length > 0 ? new Date(Math.max(...exitTimes)) : null,
-    pnl: computeTradePnl(direction, executions),
+    pnl: computeTradePnl(direction, executions, contractMultiplier),
+    contractMultiplier,
     splitRowIndexes,
   };
 }
@@ -448,6 +455,7 @@ export function tradeCreateDataFromGroup(
     assetClass: group.assetClass,
     direction: group.direction,
     status: group.pnl.status,
+    contractMultiplier: group.contractMultiplier.toString(),
     quantity: group.pnl.quantity.toString(),
     avgEntryPrice: group.pnl.avgEntryPrice.toString(),
     avgExitPrice: group.pnl.avgExitPrice?.toString() ?? null,

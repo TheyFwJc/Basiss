@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
+import { canUseFeature } from "@/lib/subscription";
 import { TradeForm } from "../../trade-form";
 
 export default async function EditTradePage({
@@ -13,7 +14,7 @@ export default async function EditTradePage({
   const session = await auth();
   const userId = session!.user.id;
 
-  const [trade, accounts, strategies, playbooks, mistakes, checklists, recentTrades] =
+  const [trade, accounts, strategies, playbooks, mistakes, checklists, recentTrades, canUploadScreenshots] =
     await Promise.all([
       db.trade.findFirst({
         where: { id, userId },
@@ -21,6 +22,7 @@ export default async function EditTradePage({
           executions: { orderBy: { executedAt: "asc" } },
           mistakes: { select: { mistakeId: true } },
           checklistEntries: { select: { checklistItemId: true } },
+          screenshots: { orderBy: { createdAt: "asc" } },
         },
       }),
       db.tradingAccount.findMany({
@@ -55,6 +57,7 @@ export default async function EditTradePage({
         select: { symbol: true },
         take: 8,
       }),
+      canUseFeature(userId, "SCREENSHOTS"),
     ]);
 
   if (!trade) notFound();
@@ -73,12 +76,15 @@ export default async function EditTradePage({
         mistakes={mistakes}
         checklists={checklists}
         recentSymbols={recentSymbols}
+        canUploadScreenshots={canUploadScreenshots}
+        existingScreenshots={trade.screenshots}
         defaults={{
           id: trade.id,
           tradingAccountId: trade.tradingAccountId,
           symbol: trade.symbol,
           assetClass: trade.assetClass,
           direction: trade.direction,
+          contractMultiplier: trade.contractMultiplier.toString(),
           stopLoss: trade.stopLoss?.toString() ?? null,
           takeProfit: trade.takeProfit?.toString() ?? null,
           strategyId: trade.strategyId,

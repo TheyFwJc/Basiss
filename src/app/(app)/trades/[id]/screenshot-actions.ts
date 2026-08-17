@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { isStorageConfigured, uploadScreenshot, deleteScreenshot } from "@/lib/storage";
+import { uploadScreenshot, deleteScreenshot } from "@/lib/storage";
 import { canUseFeature } from "@/lib/subscription";
 
 const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
@@ -24,13 +24,6 @@ export async function uploadTradeScreenshotAction(
 
   if (!(await canUseFeature(userId, "SCREENSHOTS"))) {
     return { error: "Trade screenshots are a Pro feature. Upgrade to Pro to unlock them." };
-  }
-
-  if (!isStorageConfigured()) {
-    return {
-      error:
-        "Screenshot storage isn't configured yet — add BLOB_READ_WRITE_TOKEN to the server's environment to enable uploads.",
-    };
   }
 
   const trade = await db.trade.findFirst({ where: { id: tradeId, userId } });

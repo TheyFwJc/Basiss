@@ -39,6 +39,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# locally-stored screenshot uploads (used when BLOB_READ_WRITE_TOKEN isn't set)
+/public/uploads
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

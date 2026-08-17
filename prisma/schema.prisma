@@ -255,6 +255,11 @@ model Trade {
   entryAt       DateTime
   exitAt        DateTime?
 
+  // Dollars of P&L per 1.00 price move, per unit of quantity. 1 for
+  // shares/units-style instruments; a futures contract's point value
+  // otherwise (e.g. 2 for Micro Nasdaq/MNQ) — see src/lib/futures-contracts.ts.
+  contractMultiplier Decimal @default(1) @db.Decimal(20, 8)
+
   stopLoss   Decimal? @db.Decimal(20, 8)
   takeProfit Decimal? @db.Decimal(20, 8)
 

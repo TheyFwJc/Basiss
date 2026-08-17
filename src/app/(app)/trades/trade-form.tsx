@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
+import {
+  Plus,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  ChevronDown,
+  ImagePlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,8 +26,11 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { POPULAR_SYMBOLS } from "@/lib/symbols";
+import { lookupFuturesPointValue } from "@/lib/futures-contracts";
 import type { TradeInput } from "@/lib/validations/trade";
 import { createTradeAction, updateTradeAction } from "./actions";
+import { uploadTradeScreenshotAction } from "./[id]/screenshot-actions";
+import { ScreenshotGallery, type TradeScreenshot } from "./[id]/screenshot-gallery";
 
 const ASSET_CLASS_OPTIONS = [
   { value: "EQUITY", label: "Equity" },
@@ -87,6 +98,7 @@ export type TradeFormDefaults = {
   symbol: string;
   assetClass: string;
   direction: "LONG" | "SHORT";
+  contractMultiplier: string;
   stopLoss: string | null;
   takeProfit: string | null;
   strategyId: string | null;
@@ -254,6 +266,8 @@ export function TradeForm({
   checklists,
   recentSymbols = [],
   defaults,
+  canUploadScreenshots,
+  existingScreenshots = [],
 }: {
   accounts: { id: string; name: string }[];
   strategies: { id: string; name: string }[];
@@ -262,6 +276,8 @@ export function TradeForm({
   checklists: ChecklistOption[];
   recentSymbols?: string[];
   defaults?: TradeFormDefaults;
+  canUploadScreenshots: boolean;
+  existingScreenshots?: TradeScreenshot[];
 }) {
   const symbolSuggestions = [
     ...recentSymbols,
@@ -291,6 +307,29 @@ export function TradeForm({
   const [direction, setDirection] = useState<"LONG" | "SHORT">(
     defaults?.direction ?? "LONG"
   );
+  const [contractMultiplier, setContractMultiplier] = useState(
+    defaults?.contractMultiplier ?? "1"
+  );
+  // Once the user (or a loaded trade) has an explicit multiplier, stop
+  // overwriting it with the symbol-based auto-suggestion.
+  const [multiplierTouched, setMultiplierTouched] = useState(isEdit);
+
+  function handleSymbolChange(value: string) {
+    const upper = value.toUpperCase();
+    setSymbol(upper);
+    if (assetClass === "FUTURES" && !multiplierTouched) {
+      const suggestion = lookupFuturesPointValue(upper);
+      if (suggestion != null) setContractMultiplier(String(suggestion));
+    }
+  }
+
+  function handleAssetClassChange(value: string) {
+    setAssetClass(value);
+    if (value === "FUTURES" && !multiplierTouched) {
+      const suggestion = lookupFuturesPointValue(symbol);
+      if (suggestion != null) setContractMultiplier(String(suggestion));
+    }
+  }
 
   const initialFills = splitDefaultFills(defaults);
   const [entryFills, setEntryFills] = useState<FillRow[]>(initialFills.entryFills);
@@ -325,6 +364,36 @@ export function TradeForm({
   const [checklistItemIds, setChecklistItemIds] = useState<string[]>(
     defaults?.checklistItemIds ?? []
   );
+
+  // Screenshots picked before the trade exists yet (create mode only) — held
+  // as plain Files and uploaded once createTradeAction returns a trade id.
+  const [stagedScreenshots, setStagedScreenshots] = useState<
+    { file: File; previewUrl: string }[]
+  >([]);
+  const [screenshotError, setScreenshotError] = useState<string | null>(null);
+
+  function handleStageScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setScreenshotError(null);
+    if (!file.type.startsWith("image/")) {
+      setScreenshotError("Only image files can be attached.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setScreenshotError("Images must be under 8MB.");
+      return;
+    }
+    setStagedScreenshots((rows) => [...rows, { file, previewUrl: URL.createObjectURL(file) }]);
+  }
+
+  function removeStagedScreenshot(index: number) {
+    setStagedScreenshots((rows) => {
+      URL.revokeObjectURL(rows[index].previewUrl);
+      return rows.filter((_, i) => i !== index);
+    });
+  }
 
   function toggleMistake(id: string, checked: boolean) {
     setMistakeIds((ids) =>
@@ -380,6 +449,9 @@ export function TradeForm({
       symbol,
       assetClass: assetClass as TradeInput["assetClass"],
       direction,
+      contractMultiplier: (assetClass === "FUTURES"
+        ? contractMultiplier || "1"
+        : "1") as unknown as number,
       executions,
       stopLoss: (stopLoss || undefined) as unknown as number | undefined,
       takeProfit: (takeProfit || undefined) as unknown as number | undefined,
@@ -413,6 +485,22 @@ export function TradeForm({
         setError(result.error);
         return;
       }
+
+      if (stagedScreenshots.length > 0) {
+        let failures = 0;
+        for (const { file } of stagedScreenshots) {
+          const formData = new FormData();
+          formData.set("file", file);
+          const uploadResult = await uploadTradeScreenshotAction(result.id, formData);
+          if ("error" in uploadResult) failures++;
+        }
+        if (failures > 0) {
+          toast.error(
+            `Trade saved, but ${failures} screenshot${failures > 1 ? "s" : ""} failed to upload.`
+          );
+        }
+      }
+
       router.push(`/trades/${result.id}`);
     });
   }
@@ -450,7 +538,7 @@ export function TradeForm({
                 id="symbol"
                 list="symbol-suggestions"
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                onChange={(e) => handleSymbolChange(e.target.value)}
                 placeholder="AAPL"
                 autoComplete="off"
                 required
@@ -466,7 +554,7 @@ export function TradeForm({
               <Select
                 value={assetClass}
                 items={ASSET_CLASS_ITEMS}
-                onValueChange={(v) => setAssetClass(v ?? "EQUITY")}
+                onValueChange={(v) => handleAssetClassChange(v ?? "EQUITY")}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -513,6 +601,31 @@ export function TradeForm({
             </div>
           </div>
 
+          {assetClass === "FUTURES" && (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <div className="flex flex-col gap-2 sm:col-span-2">
+                <Label htmlFor="contractMultiplier">Contract multiplier</Label>
+                <Input
+                  id="contractMultiplier"
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={contractMultiplier}
+                  onChange={(e) => {
+                    setMultiplierTouched(true);
+                    setContractMultiplier(e.target.value);
+                  }}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Dollars of P&amp;L per 1.00 price move, per contract — e.g. Micro
+                  Nasdaq (MNQ) is 2. Quantity below should be contracts, not points.
+                  Auto-filled for common contracts; override if different.
+                </p>
+              </div>
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground">
             A new trade starts with one entry and one exit fill, since most
             trades you log are already closed — delete the exit fill if
@@ -540,6 +653,72 @@ export function TradeForm({
               minRows={0}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Screenshots</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isEdit ? (
+            <ScreenshotGallery
+              tradeId={defaults!.id}
+              screenshots={existingScreenshots}
+              canUpload={canUploadScreenshots}
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-3">
+                {stagedScreenshots.map((s, i) => (
+                  <div
+                    key={s.previewUrl}
+                    className="group relative size-24 overflow-hidden rounded-md border border-border"
+                  >
+                    <div
+                      className="size-full bg-cover bg-center"
+                      style={{ backgroundImage: `url(${s.previewUrl})` }}
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-1 right-1 flex size-6 items-center justify-center rounded-full bg-background/80 text-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => removeStagedScreenshot(i)}
+                      aria-label="Remove screenshot"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                {canUploadScreenshots ? (
+                  <label className="flex size-24 cursor-pointer flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-muted-foreground transition-colors hover:bg-muted/50">
+                    <ImagePlus className="size-5" />
+                    <span className="text-[10px]">Add</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleStageScreenshot}
+                    />
+                  </label>
+                ) : (
+                  <a
+                    href="/pricing"
+                    className="flex size-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed border-border text-center text-muted-foreground transition-colors hover:bg-muted/50"
+                  >
+                    <ImagePlus className="size-5" />
+                    <span className="text-[10px] leading-tight">Pro feature</span>
+                  </a>
+                )}
+              </div>
+              {screenshotError && <p className="text-sm text-loss">{screenshotError}</p>}
+              {stagedScreenshots.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Uploaded once you save the trade below.
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

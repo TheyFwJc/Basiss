@@ -30,6 +30,13 @@ const optionalPositiveNumber = z
   .optional()
   .transform((v) => (v === "" || v === undefined ? undefined : v));
 
+/** Like optionalPositiveNumber, but falls back to a default instead of undefined. */
+const positiveNumberWithDefault = (defaultValue: number) =>
+  z
+    .union([z.literal(""), z.coerce.number().positive()])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? defaultValue : v));
+
 const optionalRating = z
   .union([z.literal(""), z.coerce.number().int().min(1).max(5)])
   .optional()
@@ -59,6 +66,10 @@ export const tradeSchema = z.object({
   executions: z
     .array(executionInputSchema)
     .min(1, "At least one execution is required"),
+  /** Dollars of P&L per 1.00 price move, per unit of quantity — 1 for
+   * shares/units-style instruments, a futures contract's point value
+   * otherwise (e.g. 2 for Micro Nasdaq/MNQ). */
+  contractMultiplier: positiveNumberWithDefault(1),
 
   stopLoss: optionalPositiveNumber,
   takeProfit: optionalPositiveNumber,
