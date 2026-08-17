@@ -92,6 +92,26 @@ export const tradeSchema = z.object({
 
   mistakeIds: z.array(z.string()).optional().default([]),
   checklistItemIds: z.array(z.string()).optional().default([]),
+}).superRefine((data, ctx) => {
+  const entrySide = data.direction === "LONG" ? "BUY" : "SELL";
+  const entryTimestamps = data.executions
+    .filter((e) => e.side === entrySide)
+    .map((e) => new Date(e.executedAt).getTime())
+    .filter((t) => !Number.isNaN(t));
+  if (entryTimestamps.length === 0) return;
+
+  const earliestEntry = Math.min(...entryTimestamps);
+  data.executions.forEach((execution, index) => {
+    if (execution.side === entrySide) return;
+    const exitTime = new Date(execution.executedAt).getTime();
+    if (!Number.isNaN(exitTime) && exitTime < earliestEntry) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Exit time cannot be before the trade's entry time.",
+        path: ["executions", index, "executedAt"],
+      });
+    }
+  });
 });
 
 export type TradeInput = z.infer<typeof tradeSchema>;

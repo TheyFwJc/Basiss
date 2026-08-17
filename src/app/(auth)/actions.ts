@@ -11,6 +11,7 @@ import {
   resetPasswordSchema,
 } from "@/lib/validations/auth";
 import { generateResetToken, hashResetToken } from "@/lib/tokens";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 export type ActionState = {
   error?: string;
@@ -129,10 +130,23 @@ export async function requestPasswordResetAction(
 
   const resetUrl = `${process.env.AUTH_URL ?? "http://localhost:3000"}/reset-password/${rawToken}`;
 
-  // No transactional email provider is wired up yet, so the link is surfaced
-  // directly in the UI rather than silently disappearing. Swap this for a real
-  // email send (Resend/Postmark/SES) before shipping to real users.
-  return { message: genericMessage, devResetUrl: resetUrl };
+  const emailSent = await sendPasswordResetEmail(user.email, resetUrl);
+  if (emailSent) {
+    return { message: genericMessage };
+  }
+
+  // No email provider configured (or the send failed) — never hand the
+  // working reset link back to whoever submitted the form outside of local
+  // development. Doing so in production would let anyone take over any
+  // account just by knowing its email address.
+  if (process.env.NODE_ENV !== "production") {
+    return { message: genericMessage, devResetUrl: resetUrl };
+  }
+
+  console.error(
+    `Password reset requested for ${user.email} but no email could be sent — set RESEND_API_KEY.`
+  );
+  return { message: genericMessage };
 }
 
 export async function resetPasswordAction(

@@ -71,7 +71,6 @@ model User {
   strategies          Strategy[]
   playbooks           Playbook[]
   checklists          Checklist[]
-  tags                Tag[]
   mistakes            Mistake[]
   screenshots         Screenshot[]
   journalEntries      JournalEntry[]
@@ -156,7 +155,6 @@ model TradingAccount {
   updatedAt       DateTime             @updatedAt
 
   trades              Trade[]
-  equitySnapshots     EquitySnapshot[]
   importJobs          ImportJob[]
   tradingViewWebhooks TradingViewWebhook[]
 
@@ -183,21 +181,18 @@ model TradingViewWebhook {
   @@index([userId])
 }
 
-model EquitySnapshot {
-  id               String         @id @default(cuid())
-  tradingAccountId String
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-  date             DateTime
-  balance          Decimal        @db.Decimal(20, 8)
-  deposits         Decimal        @default(0) @db.Decimal(20, 8)
-  withdrawals      Decimal        @default(0) @db.Decimal(20, 8)
-  realizedPnl      Decimal        @default(0) @db.Decimal(20, 8)
-  fees             Decimal        @default(0) @db.Decimal(20, 8)
-  adjustments      Decimal        @default(0) @db.Decimal(20, 8)
-  createdAt        DateTime       @default(now())
+/** Dedupes TradingView webhook deliveries, the same way StripeWebhookEvent
+ * dedupes Stripe's: a redelivered/replayed alert with a byte-identical body
+ * is a no-op instead of creating a duplicate execution. The primary key is a
+ * hash of (webhook id + raw request body), so two different webhooks can't
+ * collide with each other and a replayed capture of the exact same request
+ * is always recognized regardless of when it's resent. */
+model TradingViewWebhookEvent {
+  id        String   @id
+  webhookId String
+  createdAt DateTime @default(now())
 
-  @@unique([tradingAccountId, date])
-  @@index([tradingAccountId])
+  @@index([webhookId])
 }
 
 // ---------------------------------------------------------------------------
@@ -299,7 +294,6 @@ model Trade {
   updatedAt DateTime @updatedAt
 
   executions       Execution[]
-  tags             TradeTag[]
   mistakes         TradeMistake[]
   screenshots      Screenshot[]
   checklistEntries TradeChecklistItem[]
@@ -411,28 +405,6 @@ model TradeChecklistItem {
 // ---------------------------------------------------------------------------
 // Tags & mistakes
 // ---------------------------------------------------------------------------
-
-model Tag {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  color     String?
-  createdAt DateTime @default(now())
-
-  trades TradeTag[]
-
-  @@unique([userId, name])
-}
-
-model TradeTag {
-  tradeId String
-  trade   Trade  @relation(fields: [tradeId], references: [id], onDelete: Cascade)
-  tagId   String
-  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([tradeId, tagId])
-}
 
 model Mistake {
   id          String   @id @default(cuid())

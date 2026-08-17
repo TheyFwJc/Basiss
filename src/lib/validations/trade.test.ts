@@ -74,4 +74,40 @@ describe("tradeSchema", () => {
     const result = tradeSchema.parse({ ...baseTrade, confidence: "" });
     expect(result.confidence).toBeUndefined();
   });
+
+  it("rejects an exit execution timestamped before the entry", () => {
+    const result = tradeSchema.safeParse({
+      ...baseTrade,
+      executions: [
+        baseExecution,
+        {
+          side: "SELL" as const,
+          quantity: 100,
+          price: 11,
+          executedAt: "2025-12-31T09:30",
+          fees: 0,
+          commission: 0,
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts an exit execution timestamped after the entry", () => {
+    const result = tradeSchema.safeParse({
+      ...baseTrade,
+      executions: [
+        baseExecution,
+        {
+          side: "SELL" as const,
+          quantity: 100,
+          price: 11,
+          executedAt: "2026-01-01T10:30",
+          fees: 0,
+          commission: 0,
+        },
+      ],
+    });
+    expect(result.success).toBe(true);
+  });
 });

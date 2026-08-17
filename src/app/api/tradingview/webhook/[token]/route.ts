@@ -33,9 +33,22 @@ export async function POST(
     return NextResponse.json({ error: "Unknown webhook." }, { status: 404 });
   }
 
+  const rawBody = await request.text();
+
+  // Replay protection: a redelivered or maliciously replayed copy of the
+  // exact same request (same webhook, byte-identical body) is a no-op
+  // instead of creating a duplicate execution. Keyed on the webhook id so a
+  // captured request can't be replayed against this endpoint at all — not
+  // just deduped within some time window.
+  const eventId = createHash("sha256").update(`${webhook.id}:${rawBody}`).digest("hex");
+  const existingEvent = await db.tradingViewWebhookEvent.findUnique({ where: { id: eventId } });
+  if (existingEvent) {
+    return NextResponse.json({ ok: true, duplicate: true });
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    body = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
@@ -142,6 +155,9 @@ export async function POST(
       db.tradingViewWebhook.update({
         where: { id: webhook.id },
         data: { lastTriggeredAt: new Date() },
+      }),
+      db.tradingViewWebhookEvent.create({
+        data: { id: eventId, webhookId: webhook.id },
       }),
     ]);
   } catch {

@@ -87,12 +87,16 @@ array and (if you want database-backed sessions/account linking at that point)
 introducing the `Account`/`Session`/`VerificationToken` Prisma models Auth.js
 expects — deliberately not created now since nothing uses them yet.
 
-Password reset does not send real email yet (no transactional email provider
-is configured). `requestPasswordResetAction` generates a token, stores its
-SHA-256 hash in `PasswordResetToken`, and returns the reset URL directly to the
-UI with a visible "development mode" notice. Swap this for a real provider
-(Resend, Postmark, SES) before any real user relies on it — the token
-generation/validation logic doesn't change, only how the link is delivered.
+Password reset sends real email via Resend (`src/lib/email.ts`, a plain
+`fetch` call — no SDK) when `RESEND_API_KEY` is set. `requestPasswordResetAction`
+generates a token, stores its SHA-256 hash in `PasswordResetToken`, and emails
+the reset URL to the account's address. It never returns the working link to
+the client in production — doing so would let anyone take over any account
+just by submitting its email address into the forgot-password form. Without
+`RESEND_API_KEY` configured, the link is only surfaced directly in the UI
+(with a visible "development mode" notice) when `NODE_ENV !== "production"`;
+in production without an email provider, the request silently no-ops (logged
+server-side) rather than leaking the link.
 
 ## Database
 
@@ -160,7 +164,7 @@ formula, documented inline, covered by `src/lib/metrics.test.ts`.
 Two things worth knowing if you're extending this:
 - The equity curve (`buildEquityCurve`) is realized P&L layered on top of
   account starting balance — it does **not** yet account for deposits or
-  withdrawals, since `EquitySnapshot` isn't populated by anything yet. Don't
+  withdrawals, since there's no deposit/withdrawal tracking model yet. Don't
   read the dashboard equity curve as "actual account balance over time" until
   that lands.
 - Dashboard/Analytics currently combine all of a user's trading accounts

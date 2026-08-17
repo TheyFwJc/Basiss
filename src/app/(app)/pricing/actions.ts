@@ -72,6 +72,16 @@ export async function createCheckoutSessionAction(
       subscription_data: { metadata: { userId } },
       metadata: { userId },
       allow_promotion_codes: true,
+      // Requires Stripe Tax to be enabled (with an origin address set) in
+      // the Stripe Dashboard for this account — test mode included — or
+      // Checkout session creation fails. See README.md's "Subscriptions &
+      // billing" section. Enabling automatic_tax on the Checkout Session
+      // carries through to the subscription it creates, so later invoices
+      // (including plan/interval changes via changePlanAction) keep
+      // calculating tax automatically without re-enabling it.
+      automatic_tax: { enabled: true },
+      billing_address_collection: "required",
+      tax_id_collection: { enabled: true },
     });
 
     if (!session.url) return { error: "Stripe didn't return a checkout URL. Please try again." };

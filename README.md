@@ -99,6 +99,10 @@ and fill in:
 - `GEMINI_API_KEY` — optional. Powers the AI-assisted analysis on
   `/insights` (free tier, get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
   Everything else in the app works without it.
+- `RESEND_API_KEY` / `EMAIL_FROM` — optional in development (password reset
+  falls back to showing the link directly in the UI), but required in
+  production for password reset emails to actually send — get a key at
+  [resend.com/api-keys](https://resend.com/api-keys).
 
 ### 3. Set up the database
 
@@ -145,9 +149,10 @@ add a trading account to see the dashboard populate.
 4. `npm run build && npm run start`, or deploy to a platform that runs these for
    you (Vercel, Railway, Fly.io, etc.).
 
-Screenshot/file storage, a transactional email provider (for password reset
-emails), and broker/market-data integrations are not yet wired up — see
-[ARCHITECTURE.md](./ARCHITECTURE.md) for what's deferred to later phases and why.
+Password reset email is wired up via Resend — set `RESEND_API_KEY` (see
+above) before real users rely on it. Broker/market-data integrations are not
+yet wired up — see [ARCHITECTURE.md](./ARCHITECTURE.md) for what's deferred
+to later phases and why.
 
 ## Subscriptions & billing
 
@@ -218,7 +223,29 @@ this endpoint**, never from the client returning from checkout.
   Copy the endpoint's **Signing secret** into `STRIPE_WEBHOOK_SECRET` on your
   hosting provider.
 
-### 4. Test it end to end (Stripe test mode)
+### 4. Enable Stripe Tax
+
+Checkout (`createCheckoutSessionAction`) requests automatic tax calculation
+and VAT/tax ID collection on every session — **Stripe Tax must be turned on
+for your account, in both test and live mode, or Checkout session creation
+will fail outright** (not just show wrong tax).
+
+1. In the Stripe Dashboard, go to
+   [Tax Settings](https://dashboard.stripe.com/test/settings/tax) → **Set up
+   Stripe Tax** → set your **origin address** (where the business is based).
+2. Add at least one **tax registration** for a region you expect customers
+   from (e.g. your home state/country) — Stripe only calculates tax for
+   regions you've registered in; unregistered regions are simply charged
+   $0 tax, not an error.
+3. Repeat in **live mode** before going to production — test mode and live
+   mode have independent Tax settings.
+
+If you'd rather ship without this, remove `automatic_tax`,
+`billing_address_collection`, and `tax_id_collection` from the Checkout
+session options in `src/app/(app)/pricing/actions.ts` — Checkout then behaves
+as before (no tax calculation, no address requirement).
+
+### 5. Test it end to end (Stripe test mode)
 
 With `stripe listen` running locally (step 3) and `npm run dev` running:
 

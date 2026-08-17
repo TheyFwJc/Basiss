@@ -36,7 +36,7 @@ async function buildTradeWriteData(userId: string, input: TradeInput) {
     input.contractMultiplier
   );
   // Approximated against the account's starting balance — real running
-  // equity tracking arrives with EquitySnapshot in a later phase.
+  // equity tracking (deposits/withdrawals) isn't modeled yet.
   const riskPercent = riskAmount
     ? riskAmount.dividedBy(new Decimal(account.startingBalance)).times(100)
     : null;
