@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpAssistant } from "./help-assistant";
 import { IssueReportForm } from "./issue-report-form";
+import { SuggestionForm } from "./suggestion-form";
 
 type Section = {
   id: string;
@@ -245,7 +246,10 @@ export default function HelpPage() {
 
       <div className="mb-6 flex flex-col gap-4">
         <HelpAssistant />
-        <IssueReportForm />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SuggestionForm />
+          <IssueReportForm />
+        </div>
       </div>
 
       <nav

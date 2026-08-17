@@ -82,6 +82,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   tradingViewWebhooks TradingViewWebhook[]
   issueReports        IssueReport[]
+  suggestions         Suggestion[]
 }
 
 /** Records processed Stripe webhook event IDs so a redelivered/duplicate
@@ -634,6 +635,21 @@ model IssueReport {
   description String
   pageUrl     String
   userAgent   String?
+  plan        SubscriptionPlan
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+/** A user-submitted feature idea, separate from IssueReport (bug/feedback) —
+ * reviewed on the same /admin page, under its own tab. */
+model Suggestion {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String
+  pageUrl     String
   plan        SubscriptionPlan
   resolved    Boolean  @default(false)
   createdAt   DateTime @default(now())

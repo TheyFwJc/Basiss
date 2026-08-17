@@ -19,3 +19,9 @@ export async function setIssueResolvedAction(id: string, resolved: boolean): Pro
   await db.issueReport.update({ where: { id }, data: { resolved } });
   revalidatePath("/admin");
 }
+
+export async function setSuggestionResolvedAction(id: string, resolved: boolean): Promise<void> {
+  await requireAdmin();
+  await db.suggestion.update({ where: { id }, data: { resolved } });
+  revalidatePath("/admin");
+}

@@ -3,9 +3,16 @@
 import { useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { setIssueResolvedAction } from "./actions";
 
-export function ResolveToggle({ id, resolved }: { id: string; resolved: boolean }) {
+export function ResolveToggle({
+  id,
+  resolved,
+  action,
+}: {
+  id: string;
+  resolved: boolean;
+  action: (id: string, resolved: boolean) => Promise<void>;
+}) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -14,7 +21,7 @@ export function ResolveToggle({ id, resolved }: { id: string; resolved: boolean 
       size="sm"
       variant={resolved ? "outline" : "default"}
       disabled={pending}
-      onClick={() => startTransition(() => setIssueResolvedAction(id, !resolved))}
+      onClick={() => startTransition(() => action(id, !resolved))}
     >
       {pending ? (
         <Loader2 className="size-4 animate-spin" />
