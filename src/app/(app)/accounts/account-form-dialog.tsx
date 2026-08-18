@@ -10,6 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useDropdownMenuClose } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,17 +73,29 @@ export function AccountFormDialog({
   );
   const [open, setOpen] = useState(false);
   const submittedRef = useRef(false);
+  const closeDropdownMenu = useDropdownMenuClose();
 
   useEffect(() => {
     if (pending) submittedRef.current = true;
     if (!pending && submittedRef.current && state === null) {
       setOpen(false);
+      // This bypasses the Dialog's own onOpenChange (that only fires for
+      // Base UI's own close interactions, not this externally-driven
+      // setOpen), so the ambient dropdown menu — which stays open, invisibly,
+      // behind this dialog while editing — needs closing here too.
+      closeDropdownMenu?.();
       submittedRef.current = false;
     }
-  }, [pending, state]);
+  }, [pending, state, closeDropdownMenu]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) closeDropdownMenu?.();
+      }}
+    >
       <DialogTrigger render={trigger} nativeButton={triggerIsNativeButton} />
       <DialogContent className="sm:max-w-md">
         <form action={formAction}>

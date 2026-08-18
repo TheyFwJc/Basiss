@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { dismissOnboarding } from "./helpers";
 
 test("a new user can sign up, add a trading account, edit it, and delete it", async ({
   page,
@@ -12,6 +13,7 @@ test("a new user can sign up, add a trading account, edit it, and delete it", as
   await page.getByRole("button", { name: "Create account" }).click();
 
   await expect(page).toHaveURL(/\/dashboard/);
+  await dismissOnboarding(page);
   await expect(page.getByText("Add a trading account to get started")).toBeVisible();
 
   await page.getByRole("button", { name: "Add your first account" }).click();
@@ -32,11 +34,15 @@ test("a new user can sign up, add a trading account, edit it, and delete it", as
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByText("E2E Brokerage (renamed)")).toBeVisible();
   await expect(page.getByRole("dialog")).toBeHidden();
+  // The rename's revalidation can still be settling right after the dialog
+  // closes; give it a beat so reopening the menu below doesn't race a
+  // background re-render that would tear the just-opened menu back down.
+  await page.waitForLoadState("networkidle");
 
   await page.getByRole("button", { name: /^Actions for/ }).click();
-  await page.getByRole("button", { name: "Delete" }).click({ force: true });
+  await page.getByRole("button", { name: "Delete" }).click();
   const confirmDialog = page.getByRole("alertdialog");
   await expect(confirmDialog).toBeVisible();
-  await confirmDialog.getByRole("button", { name: "Delete" }).click({ force: true });
+  await confirmDialog.getByRole("button", { name: "Delete" }).click();
   await expect(page.getByText("No trading accounts yet")).toBeVisible();
 });

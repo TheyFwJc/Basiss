@@ -7,6 +7,13 @@ import { cn } from "@/lib/utils";
  * inside a dropdown menu — wrapping one Base UI primitive's `render` around
  * another causes an SSR/CSR hydration mismatch on `data-slot` that silently
  * breaks the nested trigger's click handling.
+ *
+ * Note this deliberately does NOT close the ambient DropdownMenu on click:
+ * the nested Dialog/AlertDialog it opens is a React child of
+ * DropdownMenuContent (even though it portals elsewhere in the DOM), so
+ * closing the menu immediately would unmount the dialog along with it. The
+ * dialog's own onOpenChange should call useDropdownMenuClose() (from
+ * dropdown-menu.tsx) when *closing* instead — see DeleteAccountButton.
  */
 export function MenuItemTrigger({
   className,

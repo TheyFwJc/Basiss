@@ -14,13 +14,19 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { MenuItemTrigger } from "@/components/ui/menu-item-trigger";
+import { useDropdownMenuClose } from "@/components/ui/dropdown-menu";
 import { deleteStrategyAction } from "./actions";
 
 export function DeleteStrategyButton({ id, name }: { id: string; name: string }) {
   const [pending, startTransition] = useTransition();
+  const closeDropdownMenu = useDropdownMenuClose();
 
   return (
-    <AlertDialog>
+    <AlertDialog
+      onOpenChange={(open) => {
+        if (!open) closeDropdownMenu?.();
+      }}
+    >
       <AlertDialogTrigger
         nativeButton={false}
         render={

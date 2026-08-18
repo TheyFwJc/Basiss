@@ -140,7 +140,7 @@ export function ProductTour({ onFinish }: { onFinish: () => void }) {
       )}
 
       <div
-        className="animate-fade-in-up w-[calc(100%-2rem)] max-w-xs rounded-xl border border-border bg-card p-5 shadow-2xl"
+        className="animate-fade-in w-[calc(100%-2rem)] max-w-xs rounded-xl border border-border bg-card p-5 shadow-2xl"
         style={cardStyle}
       >
         <div className="flex items-start justify-between gap-2">

@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { MenuItemTrigger } from "@/components/ui/menu-item-trigger";
+import { useDropdownMenuClose } from "@/components/ui/dropdown-menu";
 import { deleteTradingAccountAction } from "./actions";
 
 export function DeleteAccountButton({
@@ -24,9 +25,14 @@ export function DeleteAccountButton({
   name: string;
 }) {
   const [pending, startTransition] = useTransition();
+  const closeDropdownMenu = useDropdownMenuClose();
 
   return (
-    <AlertDialog>
+    <AlertDialog
+      onOpenChange={(open) => {
+        if (!open) closeDropdownMenu?.();
+      }}
+    >
       <AlertDialogTrigger
         nativeButton={false}
         render={

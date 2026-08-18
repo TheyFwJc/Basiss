@@ -6,8 +6,53 @@ import { Menu as MenuPrimitive } from "@base-ui/react/menu"
 import { cn } from "@/lib/utils"
 import { ChevronRightIcon, CheckIcon } from "lucide-react"
 
-function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
-  return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+const DropdownMenuCloseContext = React.createContext<(() => void) | null>(null)
+
+/**
+ * Lets MenuItemTrigger (a plain div standing in for Menu.Item so a
+ * Dialog/AlertDialog can be nested inside it — see that file's comment)
+ * close the ambient dropdown menu on click the way a real Menu.Item would.
+ * Without this the menu stays open behind the nested dialog and reappears
+ * open once the dialog closes, so the next "..." click just closes it again
+ * instead of opening it.
+ */
+export function useDropdownMenuClose() {
+  return React.useContext(DropdownMenuCloseContext)
+}
+
+function DropdownMenu({
+  open: openProp,
+  defaultOpen,
+  onOpenChange,
+  ...props
+}: MenuPrimitive.Root.Props) {
+  const [openState, setOpenState] = React.useState(defaultOpen ?? false)
+  const open = openProp ?? openState
+
+  const handleOpenChange = React.useCallback<
+    NonNullable<MenuPrimitive.Root.Props["onOpenChange"]>
+  >(
+    (nextOpen, eventDetails) => {
+      if (openProp === undefined) setOpenState(nextOpen)
+      onOpenChange?.(nextOpen, eventDetails)
+    },
+    [openProp, onOpenChange]
+  )
+
+  const close = React.useCallback(() => {
+    if (openProp === undefined) setOpenState(false)
+  }, [openProp])
+
+  return (
+    <DropdownMenuCloseContext.Provider value={close}>
+      <MenuPrimitive.Root
+        data-slot="dropdown-menu"
+        open={open}
+        onOpenChange={handleOpenChange}
+        {...props}
+      />
+    </DropdownMenuCloseContext.Provider>
+  )
 }
 
 function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
