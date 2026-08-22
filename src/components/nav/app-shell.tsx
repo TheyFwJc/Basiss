@@ -46,12 +46,13 @@ export function AppShell({
   isPaidPlan: boolean;
   isNewUser: boolean;
   isAdmin: boolean;
-  accounts: { id: string; name: string }[];
+  accounts: { id: string; name: string; accountType: string }[];
   scopedAccountId: string | null;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [entryDone, setEntryDone] = React.useState(false);
   const pathname = usePathname();
+  const defaultAccountId = scopedAccountId ?? accounts[0]?.id ?? null;
 
   // Close the mobile drawer once navigation actually lands on the new page,
   // rather than the instant the link is clicked.
@@ -67,7 +68,7 @@ export function AppShell({
       {/* Desktop sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground md:flex">
         <Brand />
-        <SidebarNav isPaidPlan={isPaidPlan} isAdmin={isAdmin} />
+        <SidebarNav isPaidPlan={isPaidPlan} isAdmin={isAdmin} accounts={accounts} defaultAccountId={defaultAccountId} />
         <div className="border-t border-sidebar-border p-2">
           <UserMenu name={userName} email={userEmail} />
         </div>
@@ -81,7 +82,7 @@ export function AppShell({
         >
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <Brand />
-          <SidebarNav isPaidPlan={isPaidPlan} isAdmin={isAdmin} />
+          <SidebarNav isPaidPlan={isPaidPlan} isAdmin={isAdmin} accounts={accounts} defaultAccountId={defaultAccountId} />
           <div className="border-t border-sidebar-border p-2">
             <UserMenu name={userName} email={userEmail} />
           </div>

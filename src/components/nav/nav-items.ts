@@ -17,6 +17,7 @@ import {
   Sparkles,
   HelpCircle,
   Users,
+  ScrollText,
 } from "lucide-react";
 
 export type NavItem = {
@@ -34,6 +35,7 @@ export const navItems: NavItem[] = [
   { label: "Strategies", href: "/strategies", icon: Target },
   { label: "Playbooks", href: "/playbooks", icon: BookOpen },
   { label: "Mistakes", href: "/mistakes", icon: AlertTriangle },
+  { label: "Rules", href: "/rules", icon: ScrollText },
   { label: "Checklists", href: "/checklists", icon: ClipboardCheck },
   { label: "Journal", href: "/journal", icon: NotebookPen },
   { label: "Risk Management", href: "/risk", icon: ShieldAlert },

@@ -35,7 +35,7 @@ export default async function AppLayout({
     db.tradingAccount.findMany({
       where: { userId },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, accountType: true },
     }),
   ]);
   const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;

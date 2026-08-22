@@ -76,6 +76,7 @@ model User {
   playbooks           Playbook[]
   checklists          Checklist[]
   mistakes            Mistake[]
+  rules               Rule[]
   screenshots         Screenshot[]
   journalEntries      JournalEntry[]
   goals               Goal[]
@@ -432,6 +433,23 @@ model Mistake {
   createdAt   DateTime @default(now())
 
   trades TradeMistake[]
+
+  @@unique([userId, name])
+}
+
+/**
+ * A personal trading rule, e.g. "No trades in the last 30 minutes" — a
+ * plain reference list, deliberately not linked to trades. The existing
+ * per-trade `ruleAdherence` self-rating and Checklists already cover
+ * per-trade rule-following; this is just somewhere to write the rules down.
+ */
+model Rule {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
 
   @@unique([userId, name])
 }

@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CreditCard, Zap, Flag, Plus } from "lucide-react";
+import { CreditCard, Zap, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
+import { QuickAddTradeDialog } from "./quick-add-trade-dialog";
 
 export function SidebarNav({
   isPaidPlan,
   isAdmin,
+  accounts,
+  defaultAccountId,
 }: {
   isPaidPlan: boolean;
   isAdmin: boolean;
+  accounts: { id: string; name: string; accountType: string }[];
+  defaultAccountId: string | null;
 }) {
   const pathname = usePathname();
 
@@ -21,13 +26,7 @@ export function SidebarNav({
 
   return (
     <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2">
-      <Link
-        href="/trades/new"
-        className="mb-2 flex items-center justify-center gap-1.5 rounded-md bg-brand-gradient px-3 py-2 text-sm font-semibold text-white shadow-sm transition-transform duration-150 hover:scale-[1.02] hover:shadow-md active:scale-[0.98]"
-      >
-        <Plus className="size-4" strokeWidth={2.5} />
-        Add trade
-      </Link>
+      <QuickAddTradeDialog accounts={accounts} defaultAccountId={defaultAccountId} />
 
       {navItems.map((item) => {
         const isActive =
