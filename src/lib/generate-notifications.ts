@@ -1,5 +1,6 @@
 import { startOfWeek, subDays } from "date-fns";
 import { db } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import {
   checkDailyLossLimit,
   checkWeeklyDrawdown,
@@ -95,11 +96,22 @@ export async function generateNotifications(userId: string): Promise<void> {
 
   await Promise.all(
     toCreate.map((c) =>
-      db.notification.upsert({
-        where: { userId_dedupeKey: { userId, dedupeKey: c.dedupeKey } },
-        create: { userId, type: c.type, message: c.message, dedupeKey: c.dedupeKey },
-        update: {},
-      })
+      db.notification
+        .upsert({
+          where: { userId_dedupeKey: { userId, dedupeKey: c.dedupeKey } },
+          create: { userId, type: c.type, message: c.message, dedupeKey: c.dedupeKey },
+          update: {},
+        })
+        .catch((err) => {
+          // Two concurrent requests (e.g. two tabs) can both race this
+          // upsert for the same brand-new dedupeKey; the loser hits a
+          // unique-constraint error rather than the update branch. The
+          // notification already exists either way, so it's a no-op.
+          if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+            return;
+          }
+          throw err;
+        })
     )
   );
 }
