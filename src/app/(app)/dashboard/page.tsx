@@ -218,8 +218,11 @@ export default async function DashboardPage() {
                 ) : (
                   <Snowflake className="size-3" />
                 )}
-                {streaks.current.count} {streaks.current.type === "WIN" ? "win" : "loss"}
-                {streaks.current.count === 1 ? "" : "es"} streak
+                {streaks.current.count}{" "}
+                {streaks.current.type === "WIN"
+                  ? `win${streaks.current.count === 1 ? "" : "s"}`
+                  : `loss${streaks.current.count === 1 ? "" : "es"}`}{" "}
+                streak
               </span>
             )}
           </div>
@@ -558,7 +561,11 @@ export default async function DashboardPage() {
                       </span>
                       <span className="font-numeric text-sm tabular-nums">
                         {streaks.current.type
-                          ? `${streaks.current.count} ${streaks.current.type === "WIN" ? "win" : "loss"}${streaks.current.count === 1 ? "" : "es"}`
+                          ? `${streaks.current.count} ${
+                              streaks.current.type === "WIN"
+                                ? `win${streaks.current.count === 1 ? "" : "s"}`
+                                : `loss${streaks.current.count === 1 ? "" : "es"}`
+                            }`
                           : "—"}
                       </span>
                     </div>
