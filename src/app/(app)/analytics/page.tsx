@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Decimal from "decimal.js";
 import {
   BarChart3,
@@ -18,6 +19,7 @@ import { EmptyState } from "@/components/empty-state";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { KpiCard } from "@/components/kpi-card";
 import { canUseFeature } from "@/lib/subscription";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import {
   Table,
   TableBody,
@@ -275,11 +277,8 @@ export default async function AnalyticsPage({
     );
   }
 
-  const [trades, strategies, mistakes] = await Promise.all([
-    db.trade.findMany({
-      where: { userId, status: "CLOSED" },
-      include: { strategy: true, mistakes: { include: { mistake: true } } },
-    }),
+  const [accountIds, strategies, mistakes] = await Promise.all([
+    db.tradingAccount.findMany({ where: { userId }, select: { id: true } }),
     db.strategy.findMany({
       where: { userId },
       orderBy: { name: "asc" },
@@ -291,6 +290,17 @@ export default async function AnalyticsPage({
       select: { id: true, name: true },
     }),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, accountIds.map((a) => a.id));
+
+  const trades = await db.trade.findMany({
+    where: {
+      userId,
+      status: "CLOSED",
+      ...(scopedAccountId ? { tradingAccountId: scopedAccountId } : {}),
+    },
+    include: { strategy: true, mistakes: { include: { mistake: true } } },
+  });
 
   if (trades.length === 0) {
     return (

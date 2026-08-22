@@ -1,9 +1,10 @@
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { generateNotifications } from "@/lib/generate-notifications";
 import { getSubscription } from "@/lib/subscription";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import { AppShell } from "@/components/nav/app-shell";
 import { PublicShell } from "@/components/nav/public-shell";
 
@@ -23,7 +24,7 @@ export default async function AppLayout({
 
   const userId = session.user.id;
   await generateNotifications(userId);
-  const [notifications, subscription, user] = await Promise.all([
+  const [notifications, subscription, user, accounts] = await Promise.all([
     db.notification.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
@@ -31,7 +32,14 @@ export default async function AppLayout({
     }),
     getSubscription(userId),
     db.user.findUniqueOrThrow({ where: { id: userId }, select: { welcomedAt: true, isAdmin: true } }),
+    db.tradingAccount.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true },
+    }),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, accounts.map((a) => a.id));
 
   return (
     <AppShell
@@ -40,6 +48,8 @@ export default async function AppLayout({
       isPaidPlan={subscription.effectivePlan !== "FREE"}
       isNewUser={user.welcomedAt === null}
       isAdmin={user.isAdmin}
+      accounts={accounts}
+      scopedAccountId={scopedAccountId}
       notifications={notifications.map((n) => ({
         id: n.id,
         type: n.type,

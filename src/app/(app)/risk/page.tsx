@@ -1,7 +1,9 @@
+import { cookies } from "next/headers";
 import { endOfWeek, startOfWeek } from "date-fns";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 import { RiskSettingsForm } from "./risk-settings-form";
@@ -62,20 +64,33 @@ export default async function RiskPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [accounts, settings, trades] = await Promise.all([
+  const [accounts, settings] = await Promise.all([
     db.tradingAccount.findMany({
       where: { userId },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, startingBalance: true, currency: true },
     }),
     db.userSettings.findUnique({ where: { userId } }),
-    db.trade.findMany({
-      where: { userId, status: "CLOSED" },
-      select: { netPnl: true, exitAt: true },
-    }),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, accounts.map((a) => a.id));
+  // Loss limits are computed against the scoped account's balance alone;
+  // the position-size calculator below still gets every account, since it's
+  // a forward-looking sizing tool rather than a data view.
+  const balanceAccounts = scopedAccountId
+    ? accounts.filter((a) => a.id === scopedAccountId)
+    : accounts;
 
-  const totalStartingBalance = accounts.reduce(
+  const trades = await db.trade.findMany({
+    where: {
+      userId,
+      status: "CLOSED",
+      ...(scopedAccountId ? { tradingAccountId: scopedAccountId } : {}),
+    },
+    select: { netPnl: true, exitAt: true },
+  });
+
+  const totalStartingBalance = balanceAccounts.reduce(
     (sum, a) => sum + Number(a.startingBalance),
     0
   );

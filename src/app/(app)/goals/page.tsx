@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { Plus, Flag, MoreHorizontal } from "lucide-react";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { buttonVariants } from "@/components/ui/button";
@@ -37,13 +39,21 @@ export default async function GoalsPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [goals, trades] = await Promise.all([
+  const [goals, accountIds] = await Promise.all([
     db.goal.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
-    db.trade.findMany({
-      where: { userId, status: "CLOSED" },
-      select: { netPnl: true, rMultiple: true, exitAt: true, status: true, ruleAdherence: true },
-    }),
+    db.tradingAccount.findMany({ where: { userId }, select: { id: true } }),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, accountIds.map((a) => a.id));
+
+  const trades = await db.trade.findMany({
+    where: {
+      userId,
+      status: "CLOSED",
+      ...(scopedAccountId ? { tradingAccountId: scopedAccountId } : {}),
+    },
+    select: { netPnl: true, rMultiple: true, exitAt: true, status: true, ruleAdherence: true },
+  });
 
   const goalTrades: GoalTrade[] = trades;
   const now = new Date();

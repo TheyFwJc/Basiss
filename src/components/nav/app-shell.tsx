@@ -11,6 +11,7 @@ import { SidebarNav } from "./sidebar-nav";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { NotificationsBell, type NotificationItem } from "./notifications-bell";
+import { AccountSwitcher } from "./account-switcher";
 import { WelcomeExperience } from "@/components/welcome-experience";
 import { EntryTransition } from "@/components/entry-transition";
 import { PageTransition } from "./page-transition";
@@ -35,6 +36,8 @@ export function AppShell({
   isPaidPlan,
   isNewUser,
   isAdmin,
+  accounts,
+  scopedAccountId,
 }: {
   children: React.ReactNode;
   userName?: string | null;
@@ -43,6 +46,8 @@ export function AppShell({
   isPaidPlan: boolean;
   isNewUser: boolean;
   isAdmin: boolean;
+  accounts: { id: string; name: string }[];
+  scopedAccountId: string | null;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [entryDone, setEntryDone] = React.useState(false);
@@ -94,6 +99,9 @@ export function AppShell({
           >
             <Menu className="size-4" />
           </Button>
+          {accounts.length > 1 && (
+            <AccountSwitcher accounts={accounts} selectedAccountId={scopedAccountId} />
+          )}
           <div className="flex-1" />
           <NotificationsBell notifications={notifications} />
           <ThemeToggle />

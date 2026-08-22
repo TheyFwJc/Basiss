@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import {
   startOfMonth,
   endOfMonth,
@@ -9,6 +10,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { PageHeader } from "@/components/page-header";
 import { canUseFeature } from "@/lib/subscription";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import { CalendarGrid, type CalendarTrade } from "./calendar-grid";
 
 export default async function CalendarPage({
@@ -31,17 +33,22 @@ export default async function CalendarPage({
   const gridEnd = endOfWeek(monthEnd);
   const gridDays = eachDayOfInterval({ start: gridStart, end: gridEnd });
 
-  const [trades, hasWeeklyMonthly] = await Promise.all([
-    db.trade.findMany({
-      where: {
-        userId,
-        exitAt: { gte: gridStart, lte: gridEnd },
-      },
-      orderBy: { exitAt: "asc" },
-      include: { tradingAccount: true },
-    }),
+  const [accountIds, hasWeeklyMonthly] = await Promise.all([
+    db.tradingAccount.findMany({ where: { userId }, select: { id: true } }),
     canUseFeature(userId, "CALENDAR_WEEKLY_MONTHLY"),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, accountIds.map((a) => a.id));
+
+  const trades = await db.trade.findMany({
+    where: {
+      userId,
+      exitAt: { gte: gridStart, lte: gridEnd },
+      ...(scopedAccountId ? { tradingAccountId: scopedAccountId } : {}),
+    },
+    orderBy: { exitAt: "asc" },
+    include: { tradingAccount: true },
+  });
 
   const calendarTrades: CalendarTrade[] = trades.map((t) => ({
     id: t.id,

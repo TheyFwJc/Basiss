@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import {
   Wallet,
@@ -35,6 +36,7 @@ import { formatCurrency, formatDate, formatSignedNumber } from "@/lib/format";
 import { AccountFormDialog } from "@/app/(app)/accounts/account-form-dialog";
 import { computeCurrentBalance } from "@/lib/accounts";
 import { canUseFeature } from "@/lib/subscription";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import {
   computeWinLossStats,
   computeProfitStats,
@@ -66,18 +68,27 @@ export default async function DashboardPage() {
   const session = await auth();
   const userId = session!.user.id;
 
-  const [accounts, trades, hasAdvancedStats] = await Promise.all([
+  const [allAccounts, hasAdvancedStats] = await Promise.all([
     db.tradingAccount.findMany({
       where: { userId },
       orderBy: { createdAt: "asc" },
     }),
-    db.trade.findMany({
-      where: { userId },
-      orderBy: { entryAt: "desc" },
-      include: { strategy: true, tradingAccount: true },
-    }),
     canUseFeature(userId, "ADVANCED_DASHBOARD_STATS"),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, allAccounts.map((a) => a.id));
+  const accounts = scopedAccountId
+    ? allAccounts.filter((a) => a.id === scopedAccountId)
+    : allAccounts;
+
+  const trades = await db.trade.findMany({
+    where: {
+      userId,
+      ...(scopedAccountId ? { tradingAccountId: scopedAccountId } : {}),
+    },
+    orderBy: { entryAt: "desc" },
+    include: { strategy: true, tradingAccount: true },
+  });
 
   const totalStartingBalance = accounts.reduce(
     (sum, a) => sum + Number(a.startingBalance),

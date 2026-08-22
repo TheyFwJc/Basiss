@@ -1,10 +1,12 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { GoogleGenAI, ApiError } from "@google/genai";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { buildTradingSummary } from "@/lib/ai/build-summary";
 import { canUseFeature } from "@/lib/subscription";
+import { ACCOUNT_SCOPE_COOKIE, resolveScopedAccountId } from "@/lib/account-scope";
 import type { AnalyticsTrade } from "@/lib/analytics";
 
 /**
@@ -63,14 +65,24 @@ export async function generateInsightsAction(): Promise<InsightsResult> {
     };
   }
 
-  const [trades, goals, accounts] = await Promise.all([
-    db.trade.findMany({
-      where: { userId, status: "CLOSED" },
-      include: { strategy: true, mistakes: { include: { mistake: true } } },
-    }),
+  const [goals, allAccounts] = await Promise.all([
     db.goal.findMany({ where: { userId } }),
-    db.tradingAccount.findMany({ where: { userId }, select: { startingBalance: true } }),
+    db.tradingAccount.findMany({ where: { userId }, select: { id: true, startingBalance: true } }),
   ]);
+  const rawScope = (await cookies()).get(ACCOUNT_SCOPE_COOKIE)?.value;
+  const scopedAccountId = resolveScopedAccountId(rawScope, allAccounts.map((a) => a.id));
+  const accounts = scopedAccountId
+    ? allAccounts.filter((a) => a.id === scopedAccountId)
+    : allAccounts;
+
+  const trades = await db.trade.findMany({
+    where: {
+      userId,
+      status: "CLOSED",
+      ...(scopedAccountId ? { tradingAccountId: scopedAccountId } : {}),
+    },
+    include: { strategy: true, mistakes: { include: { mistake: true } } },
+  });
 
   if (trades.length < MIN_TRADES_FOR_INSIGHTS) {
     return {
