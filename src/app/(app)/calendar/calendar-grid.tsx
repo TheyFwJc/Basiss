@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, NotebookPen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -373,6 +373,20 @@ export function CalendarGrid({
               </Link>
             ))}
           </div>
+          {selectedDay && (
+            <Button
+              render={
+                <Link href={`/journal/${selectedDay}`}>
+                  <NotebookPen className="size-4" />
+                  Journal entry for this day
+                </Link>
+              }
+              nativeButton={false}
+              variant="outline"
+              size="sm"
+              className="mt-2 w-full"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

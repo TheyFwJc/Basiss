@@ -99,7 +99,7 @@ export async function generateNotifications(userId: string): Promise<void> {
       db.notification
         .upsert({
           where: { userId_dedupeKey: { userId, dedupeKey: c.dedupeKey } },
-          create: { userId, type: c.type, message: c.message, dedupeKey: c.dedupeKey },
+          create: { userId, type: c.type, message: c.message, dedupeKey: c.dedupeKey, link: c.link },
           update: {},
         })
         .catch((err) => {

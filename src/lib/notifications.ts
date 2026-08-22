@@ -17,6 +17,9 @@ export type NotificationCandidate = {
     | "WEEKLY_REVIEW";
   message: string;
   dedupeKey: string;
+  /** Overrides the type's static TYPE_META href in the bell when this
+   * candidate points at a specific day/entity rather than a fixed page. */
+  link?: string;
 };
 
 /** Fires once per calendar day the first time today's realized loss reaches the daily limit. */
@@ -61,6 +64,7 @@ export function checkMissingJournal(params: {
     type: "MISSING_JOURNAL",
     message: `No journal entry for ${params.dateKey} — log a quick recap while it's fresh.`,
     dedupeKey: `missing-journal:${params.dateKey}`,
+    link: `/journal/${params.dateKey}`,
   };
 }
 
