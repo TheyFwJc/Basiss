@@ -16,6 +16,7 @@ import {
   Flag,
   Sparkles,
   HelpCircle,
+  Users,
 } from "lucide-react";
 
 export type NavItem = {
@@ -37,6 +38,7 @@ export const navItems: NavItem[] = [
   { label: "Journal", href: "/journal", icon: NotebookPen },
   { label: "Risk Management", href: "/risk", icon: ShieldAlert },
   { label: "Goals", href: "/goals", icon: Flag },
+  { label: "Friends", href: "/friends", icon: Users },
   { label: "Accounts", href: "/accounts", icon: Wallet },
   { label: "Import", href: "/import", icon: Upload },
   { label: "Settings", href: "/settings", icon: Settings },

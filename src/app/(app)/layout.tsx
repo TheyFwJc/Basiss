@@ -56,6 +56,7 @@ export default async function AppLayout({
         message: n.message,
         read: n.read,
         createdAt: n.createdAt.toISOString(),
+        link: n.link,
       }))}
     >
       {children}

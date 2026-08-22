@@ -42,6 +42,8 @@ export async function updatePreferencesAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   }
+  // Unchecked checkboxes are simply absent from FormData, not "false".
+  const notificationsEnabled = formData.get("notificationsEnabled") != null;
 
   await db.userSettings.upsert({
     where: { userId: session.user.id },
@@ -49,10 +51,12 @@ export async function updatePreferencesAction(
       userId: session.user.id,
       timezone: parsed.data.timezone,
       baseCurrency: parsed.data.baseCurrency,
+      notificationsEnabled,
     },
     update: {
       timezone: parsed.data.timezone,
       baseCurrency: parsed.data.baseCurrency,
+      notificationsEnabled,
     },
   });
 

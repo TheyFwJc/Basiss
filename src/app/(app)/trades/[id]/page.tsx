@@ -14,11 +14,13 @@ import {
   formatSignedNumber,
 } from "@/lib/format";
 import { canUseFeature } from "@/lib/subscription";
+import { canViewTrade } from "@/lib/friendship";
 import { isAlpacaConfigured, fetchBars, timeframeForTrade, type Bar } from "@/lib/alpaca";
 import { TradePriceChart } from "@/components/trade-price-chart";
 import { DeleteTradeButton } from "./delete-trade-button";
 import { ReviewForm } from "./review-form";
 import { ScreenshotGallery } from "./screenshot-gallery";
+import { FriendRatings } from "./friend-ratings";
 
 function StatRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -40,7 +42,7 @@ export default async function TradeDetailPage({
   const canUploadScreenshots = await canUseFeature(userId, "SCREENSHOTS");
 
   const trade = await db.trade.findFirst({
-    where: { id, userId },
+    where: { id },
     include: {
       tradingAccount: true,
       strategy: true,
@@ -52,10 +54,15 @@ export default async function TradeDetailPage({
         include: { checklistItem: { include: { checklist: true } } },
       },
       screenshots: { orderBy: { createdAt: "asc" } },
+      friendRatings: {
+        orderBy: { createdAt: "asc" },
+        include: { rater: { select: { id: true, name: true, email: true } } },
+      },
     },
   });
 
-  if (!trade) notFound();
+  if (!trade || !(await canViewTrade(userId, trade))) notFound();
+  const isOwner = trade.userId === userId;
 
   let priceChartError: string | null = null;
   let priceChartBars: Bar[] = [];
@@ -111,20 +118,22 @@ export default async function TradeDetailPage({
             {trade.tradingAccount.name} · {formatDateTime(trade.entryAt)}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            render={
-              <Link href={`/trades/${trade.id}/edit`}>
-                <Pencil className="size-4" />
-                Edit
-              </Link>
-            }
-            nativeButton={false}
-            variant="outline"
-            size="sm"
-          />
-          <DeleteTradeButton id={trade.id} symbol={trade.symbol} />
-        </div>
+        {isOwner && (
+          <div className="flex items-center gap-2">
+            <Button
+              render={
+                <Link href={`/trades/${trade.id}/edit`}>
+                  <Pencil className="size-4" />
+                  Edit
+                </Link>
+              }
+              nativeButton={false}
+              variant="outline"
+              size="sm"
+            />
+            <DeleteTradeButton id={trade.id} symbol={trade.symbol} />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -311,7 +320,7 @@ export default async function TradeDetailPage({
           <ScreenshotGallery
             tradeId={trade.id}
             screenshots={trade.screenshots}
-            canUpload={canUploadScreenshots}
+            canUpload={isOwner && canUploadScreenshots}
           />
         </CardContent>
       </Card>
@@ -361,11 +370,49 @@ export default async function TradeDetailPage({
           <CardTitle className="text-base">Review</CardTitle>
         </CardHeader>
         <CardContent>
-          <ReviewForm
+          {isOwner ? (
+            <ReviewForm
+              tradeId={trade.id}
+              reviewWhatWentWell={trade.reviewWhatWentWell}
+              reviewWhatWentWrong={trade.reviewWhatWentWrong}
+              reviewWhatToChange={trade.reviewWhatToChange}
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">What went well</p>
+                <p className="text-sm whitespace-pre-wrap">{trade.reviewWhatWentWell || "—"}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">What went wrong</p>
+                <p className="text-sm whitespace-pre-wrap">{trade.reviewWhatWentWrong || "—"}</p>
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">What to change</p>
+                <p className="text-sm whitespace-pre-wrap">{trade.reviewWhatToChange || "—"}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Friend ratings</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <FriendRatings
             tradeId={trade.id}
-            reviewWhatWentWell={trade.reviewWhatWentWell}
-            reviewWhatWentWrong={trade.reviewWhatWentWrong}
-            reviewWhatToChange={trade.reviewWhatToChange}
+            ratings={trade.friendRatings.map((r) => ({
+              id: r.id,
+              raterId: r.raterId,
+              raterName: r.rater.name ?? r.rater.email,
+              rating: r.rating,
+              note: r.note,
+              createdAt: r.createdAt.toISOString(),
+            }))}
+            viewerId={userId}
+            canRate={!isOwner}
           />
         </CardContent>
       </Card>

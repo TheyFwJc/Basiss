@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updatePreferencesAction } from "./actions";
@@ -9,9 +10,11 @@ import { updatePreferencesAction } from "./actions";
 export function PreferencesForm({
   timezone,
   baseCurrency,
+  notificationsEnabled,
 }: {
   timezone: string;
   baseCurrency: string;
+  notificationsEnabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     updatePreferencesAction,
@@ -43,6 +46,10 @@ export function PreferencesForm({
           />
         </div>
       </div>
+      <label className="flex items-center gap-2 text-sm">
+        <Checkbox name="notificationsEnabled" defaultChecked={notificationsEnabled} />
+        Email me about friend requests and trade ratings
+      </label>
       {state?.error && <p className="text-sm text-loss">{state.error}</p>}
       {state?.message && <p className="text-sm text-profit">{state.message}</p>}
       <div>

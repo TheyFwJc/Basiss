@@ -10,6 +10,8 @@ import {
   ClipboardList,
   BarChart3,
   AlertTriangle,
+  UserPlus,
+  Star,
 } from "lucide-react";
 import {
   Popover,
@@ -33,10 +35,17 @@ export type NotificationItem = {
     | "MISSING_JOURNAL"
     | "REVIEW_REMINDER"
     | "RISK_LIMIT"
-    | "WEEKLY_REVIEW";
+    | "WEEKLY_REVIEW"
+    | "FRIEND_REQUEST_RECEIVED"
+    | "FRIEND_REQUEST_ACCEPTED"
+    | "TRADE_RATED";
   message: string;
   read: boolean;
   createdAt: string;
+  /** Event-driven types (friend requests, trade ratings) point at a
+   * specific trade/friend rather than the fixed page TYPE_META gives the
+   * six periodic types. */
+  link?: string | null;
 };
 
 const TYPE_META = {
@@ -46,6 +55,9 @@ const TYPE_META = {
   REVIEW_REMINDER: { icon: ClipboardList, href: "/trades" },
   RISK_LIMIT: { icon: AlertTriangle, href: "/risk" },
   WEEKLY_REVIEW: { icon: BarChart3, href: "/analytics" },
+  FRIEND_REQUEST_RECEIVED: { icon: UserPlus, href: "/friends" },
+  FRIEND_REQUEST_ACCEPTED: { icon: UserPlus, href: "/friends" },
+  TRADE_RATED: { icon: Star, href: "/trades" },
 } as const;
 
 export function NotificationsBell({ notifications }: { notifications: NotificationItem[] }) {
@@ -100,7 +112,7 @@ export function NotificationsBell({ notifications }: { notifications: Notificati
               return (
                 <Link
                   key={n.id}
-                  href={meta.href}
+                  href={n.link || meta.href}
                   onClick={() => handleOpenNotification(n.id)}
                   className={`flex items-start gap-2.5 rounded-md p-2 text-left text-xs transition-colors hover:bg-muted/50 ${
                     n.read ? "" : "bg-accent/40"

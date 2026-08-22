@@ -46,23 +46,27 @@ model User {
   // Billing — Lemon Squeezy is the source of truth; these fields are a cache
   // kept in sync by the webhook handler (src/app/api/lemonsqueezy/webhook/route.ts).
   // Never trust client-supplied plan/status — always read these columns.
-  lemonSqueezyCustomerId     String?             @unique
-  lemonSqueezySubscriptionId String?             @unique
-  subscriptionPlan       SubscriptionPlan    @default(FREE)
-  subscriptionStatus     SubscriptionStatus  @default(FREE)
-  billingInterval        BillingInterval?
-  currentPeriodEnd       DateTime?
-  cancelAtPeriodEnd      Boolean             @default(false)
-  subscriptionStartedAt  DateTime?
-  subscriptionCanceledAt DateTime?
+  lemonSqueezyCustomerId     String?            @unique
+  lemonSqueezySubscriptionId String?            @unique
+  subscriptionPlan           SubscriptionPlan   @default(FREE)
+  subscriptionStatus         SubscriptionStatus @default(FREE)
+  billingInterval            BillingInterval?
+  currentPeriodEnd           DateTime?
+  cancelAtPeriodEnd          Boolean            @default(false)
+  subscriptionStartedAt      DateTime?
+  subscriptionCanceledAt     DateTime?
 
-  /** Null until the user clicks through the first-run welcome screen —
+  /**
+   * Null until the user clicks through the first-run welcome screen —
    * everything after that (including pre-existing users, backfilled at
-   * migration time) is treated as a "welcome back" visit instead. */
+   * migration time) is treated as a "welcome back" visit instead.
+   */
   welcomedAt DateTime?
 
-  /** Gates /admin (issue report review). Set directly in the DB — there's
-   * no self-service way to become an admin, and no UI exposes this flag. */
+  /**
+   * Gates /admin (issue report review). Set directly in the DB — there's
+   * no self-service way to become an admin, and no UI exposes this flag.
+   */
   isAdmin Boolean @default(false)
 
   settings            UserSettings?
@@ -82,14 +86,19 @@ model User {
   tradingViewWebhooks TradingViewWebhook[]
   issueReports        IssueReport[]
   suggestions         Suggestion[]
+  friendshipsSent     Friendship[]         @relation("FriendshipRequester")
+  friendshipsReceived Friendship[]         @relation("FriendshipReceiver")
+  tradeRatingsGiven   TradeRating[]
 }
 
-/** Dedupes processed Lemon Squeezy webhook deliveries so a redelivered/
+/**
+ * Dedupes processed Lemon Squeezy webhook deliveries so a redelivered/
  * duplicate event is a no-op instead of double-applying (e.g. double-
  * extending a billing period). Unlike Stripe, Lemon Squeezy webhook payloads
  * don't carry a stable per-event ID, so the primary key is a hash of
  * (event name + raw body) computed in the webhook handler — same pattern as
- * TradingViewWebhookEvent. */
+ * TradingViewWebhookEvent.
+ */
 model LemonSqueezyWebhookEvent {
   id        String   @id
   type      String
@@ -164,32 +173,36 @@ model TradingAccount {
   @@index([userId])
 }
 
-/** A per-account incoming webhook for TradingView alerts (Pine Script
+/**
+ * A per-account incoming webhook for TradingView alerts (Pine Script
  * strategy alerts posting a JSON message). There is no way to verify these
  * requests came from TradingView specifically — the URL's token IS the only
  * secret, exactly like Slack/Zapier incoming webhooks — so the raw token is
- * shown to the user only once at creation and stored here only as a hash. */
+ * shown to the user only once at creation and stored here only as a hash.
+ */
 model TradingViewWebhook {
-  id               String         @id @default(cuid())
-  userId           String
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tradingAccountId String
-  tradingAccount   TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
-  label            String
-  tokenHash        String         @unique
-  defaultAssetClass AssetClass    @default(EQUITY)
-  createdAt        DateTime       @default(now())
-  lastTriggeredAt  DateTime?
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradingAccountId  String
+  tradingAccount    TradingAccount @relation(fields: [tradingAccountId], references: [id], onDelete: Cascade)
+  label             String
+  tokenHash         String         @unique
+  defaultAssetClass AssetClass     @default(EQUITY)
+  createdAt         DateTime       @default(now())
+  lastTriggeredAt   DateTime?
 
   @@index([userId])
 }
 
-/** Dedupes TradingView webhook deliveries, the same way StripeWebhookEvent
+/**
+ * Dedupes TradingView webhook deliveries, the same way StripeWebhookEvent
  * dedupes Stripe's: a redelivered/replayed alert with a byte-identical body
  * is a no-op instead of creating a duplicate execution. The primary key is a
  * hash of (webhook id + raw request body), so two different webhooks can't
  * collide with each other and a replayed capture of the exact same request
- * is always recognized regardless of when it's resent. */
+ * is always recognized regardless of when it's resent.
+ */
 model TradingViewWebhookEvent {
   id        String   @id
   webhookId String
@@ -300,6 +313,7 @@ model Trade {
   mistakes         TradeMistake[]
   screenshots      Screenshot[]
   checklistEntries TradeChecklistItem[]
+  friendRatings    TradeRating[]
 
   @@index([userId])
   @@index([tradingAccountId])
@@ -581,6 +595,9 @@ enum NotificationType {
   REVIEW_REMINDER
   RISK_LIMIT
   WEEKLY_REVIEW
+  FRIEND_REQUEST_RECEIVED
+  FRIEND_REQUEST_ACCEPTED
+  TRADE_RATED
 }
 
 model Notification {
@@ -594,40 +611,100 @@ model Notification {
   // or week), so generation can upsert instead of creating duplicates every
   // time it runs.
   dedupeKey String
+  // Where clicking the notification should go. The six original types are
+  // periodic/derived and link to a fixed page (handled by the bell's static
+  // TYPE_META map); event-driven types (friend requests, trade ratings)
+  // point at a specific trade/friend, so they set this instead.
+  link      String?
   createdAt DateTime         @default(now())
 
   @@unique([userId, dedupeKey])
   @@index([userId])
 }
 
-/** A user-submitted bug/feedback report from the Help page. No triage
+// ---------------------------------------------------------------------------
+// Friends
+// ---------------------------------------------------------------------------
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+}
+
+/**
+ * A friend request/connection between two users. Symmetric once ACCEPTED —
+ * either user's trades become visible to the other (see src/lib/friendship.ts).
+ * Declining or removing a friend deletes the row outright rather than
+ * tracking a DECLINED state, so a fresh request can be sent later without
+ * the unique constraint blocking it.
+ */
+model Friendship {
+  id          String           @id @default(cuid())
+  requesterId String
+  requester   User             @relation("FriendshipRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  receiverId  String
+  receiver    User             @relation("FriendshipReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  respondedAt DateTime?
+
+  @@unique([requesterId, receiverId])
+  @@index([receiverId])
+  @@index([requesterId])
+}
+
+/**
+ * One friend's rating + note on a trade — upserted, not a comment thread:
+ * each rater has exactly one rating/note per trade, editable in place.
+ */
+model TradeRating {
+  id        String   @id @default(cuid())
+  tradeId   String
+  trade     Trade    @relation(fields: [tradeId], references: [id], onDelete: Cascade)
+  raterId   String
+  rater     User     @relation(fields: [raterId], references: [id], onDelete: Cascade)
+  rating    Int
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tradeId, raterId])
+  @@index([tradeId])
+  @@index([raterId])
+}
+
+/**
+ * A user-submitted bug/feedback report from the Help page. No triage
  * workflow yet (status, replies) — just `resolved` so an eventual admin
- * view can filter, deliberately minimal until report volume justifies more. */
+ * view can filter, deliberately minimal until report volume justifies more.
+ */
 model IssueReport {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   description String
   pageUrl     String
   userAgent   String?
   plan        SubscriptionPlan
-  resolved    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  resolved    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
 
   @@index([userId])
 }
 
-/** A user-submitted feature idea, separate from IssueReport (bug/feedback) —
- * reviewed on the same /admin page, under its own tab. */
+/**
+ * A user-submitted feature idea, separate from IssueReport (bug/feedback) —
+ * reviewed on the same /admin page, under its own tab.
+ */
 model Suggestion {
-  id          String   @id @default(cuid())
+  id          String           @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   description String
   pageUrl     String
   plan        SubscriptionPlan
-  resolved    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  resolved    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
 
   @@index([userId])
 }

@@ -69,6 +69,7 @@ export default async function SettingsPage() {
           <PreferencesForm
             timezone={user.settings?.timezone ?? "America/New_York"}
             baseCurrency={user.settings?.baseCurrency ?? "USD"}
+            notificationsEnabled={user.settings?.notificationsEnabled ?? true}
           />
         </CardContent>
       </Card>
